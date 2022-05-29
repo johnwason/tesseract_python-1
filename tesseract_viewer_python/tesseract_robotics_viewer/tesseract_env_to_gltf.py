@@ -25,6 +25,7 @@ import pkgutil
 import re
 import base64
 import io
+import warnings
 from tesseract_robotics.tesseract_command_language import isStateWaypoint, isMoveInstruction
 
 def tesseract_env_to_gltf(t_env, origin_offset=[0,0,0], name = None, trajectory = None):
@@ -161,8 +162,11 @@ def _append_link_recursive(gltf_dict, gltf_buf_io, link_map, joint_map, link_nam
     visual_i = 0
     for visual in link.visual:
         visual_i += 1
-        _, visual_ind = _append_link_visual(gltf_dict, gltf_buf_io, link_name, visual, visual_i, shapes_mesh_inds)
-        child_inds.append(visual_ind)
+        try:
+            _, visual_ind = _append_link_visual(gltf_dict, gltf_buf_io, link_name, visual, visual_i, shapes_mesh_inds)
+            child_inds.append(visual_ind)
+        except Exception as e:
+            warnings.warn("Error adding visual to link \"" + str(link_name) + "\": " + str(e))
 
     child_joints = _find_child_joints(joint_map, link_name)
     for j in child_joints:
