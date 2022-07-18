@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['findtcpcallbackfnbase_189',['FindTCPCallbackFnBase',['../d0/df2/classFindTCPCallbackFnBase.html',1,'']]],
-  ['flattenfilterfnbase_190',['flattenFilterFnBase',['../d1/d32/classflattenFilterFnBase.html',1,'']]]
+  ['iscontactallowedfnbase_0',['IsContactAllowedFnBase',['../dd/d82/classIsContactAllowedFnBase.html',1,'']]],
+  ['iscontactvalidfnbase_1',['IsContactValidFnBase',['../d3/dda/classIsContactValidFnBase.html',1,'']]]
 ];
