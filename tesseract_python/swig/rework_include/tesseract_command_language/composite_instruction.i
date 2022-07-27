@@ -73,9 +73,11 @@ public:
   %ignore CompositeInstruction();
   %ignore CompositeInstruction(const CompositeInstruction&);
   %ignore CompositeInstruction(size_type);
-  %ignore CompositeInstruction(size_type, value_type const &); 
+  %ignore CompositeInstruction(size_type, value_type const &);
+#ifdef SWIGPYTHON
   %swig_vector_methods(tesseract_planning::CompositeInstruction)
   %std_vector_methods(CompositeInstruction)
+#endif
 
 };
 

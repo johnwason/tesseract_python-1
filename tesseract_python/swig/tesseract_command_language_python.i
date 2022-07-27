@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_command_language") tesseract_command_language_python
 
 #pragma SWIG nowarn=473
@@ -33,6 +35,8 @@
 %include "std_unique_ptr.i"
 
 %import "tesseract_common_python.i"
+
+#endif
 
 %{
 
@@ -106,7 +110,9 @@ const tesseract_planning::TYPE as_const_ ## TYPE() {return $self->as<const tesse
 %ignore std::vector<tesseract_planning::Instruction>::resize(size_type);
 %ignore tesseract_planning::Instruction::getType;
 %wrap_unique_ptr(InstructionUPtr,tesseract_planning::Instruction);
+#ifdef SWIGPYTHON
 %pythondynamic tesseract_planning::Instruction;
+#endif
 %include "tesseract_command_language/core/instruction.h"
 %template(Instructions) std::vector<tesseract_planning::Instruction>;
 

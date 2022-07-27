@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_motion_planners_simple") tesseract_motion_planners_simple_python
 
 #pragma SWIG nowarn=473
@@ -32,6 +34,8 @@
 %include "tesseract_std_function.i"
 
 %import "tesseract_motion_planners_python.i"
+
+#endif
 
 %{
 // tesseract_motion_planners_simple

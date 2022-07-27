@@ -22,6 +22,8 @@
 
 //%template(DblVec) std::vector<double>;
 
+#ifdef SWIGPYTHON
+
 // Convert to Eigen for DblVec so numpy shows up on Python side
 %typemap(out, fragment="Eigen_Fragments") std::vector<double>*, std::vector<double> const*
 {
@@ -55,6 +57,7 @@
   $1 = &temp;
 }
 
+#endif
 
 %template(SafetyMarginDataPtr_vector) std::vector<std::shared_ptr<util::SafetyMarginData>>;
 %template(TermInfoPtr_vector) std::vector<std::shared_ptr<trajopt::TermInfo>>;

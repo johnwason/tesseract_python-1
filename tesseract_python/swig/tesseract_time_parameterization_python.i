@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_time_parameterization") tesseract_time_parameterization_python
 
 #pragma SWIG nowarn=473
@@ -31,6 +33,8 @@
 %include "tesseract_swig_include.i"
 
 %import "tesseract_command_language_python.i"
+
+#endif
 
 %{
 
