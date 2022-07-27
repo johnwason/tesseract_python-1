@@ -25,7 +25,10 @@ void setLogLevel(LogLevel level);
  */
 LogLevel getLogLevel(void);
 
+#ifdef SWIGPYTHON
 %pythondynamic OutputHandler;
+#endif
+
 class OutputHandler
 {
 public:

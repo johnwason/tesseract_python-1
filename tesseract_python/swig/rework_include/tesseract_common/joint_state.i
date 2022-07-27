@@ -78,8 +78,10 @@ public:
   %ignore JointTrajectory(const JointTrajectory&);
   %ignore JointTrajectory(size_type);
   %ignore JointTrajectory(size_type, value_type const &);
+#ifdef SWIGPYTHON
   %swig_vector_methods(tesseract_common::JointTrajectory)
   %std_vector_methods(JointTrajectory)
+#endif
 };
 
 }  // namespace tesseract_common

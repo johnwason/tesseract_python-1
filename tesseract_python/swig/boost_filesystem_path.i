@@ -41,10 +41,12 @@ public:
 path(const std::string& s);
 std::string string();
 
+#ifdef SWIGPYTHON
 %pythoncode %{
 def __str__(self):
     return self.string()
 %}
+#endif
 };
 }
 }

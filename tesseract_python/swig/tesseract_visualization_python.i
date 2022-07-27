@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_visualization") tesseract_visualization_python
 
 #pragma SWIG nowarn=473
@@ -31,6 +33,8 @@
 %include "tesseract_swig_include.i"
 
 %import "tesseract_environment_python.i"
+
+#endif
 
 %{
 // tesseract_visualization

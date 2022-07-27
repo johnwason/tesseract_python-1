@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_geometry") tesseract_geometry_python
 
 #pragma SWIG nowarn=473
@@ -31,6 +33,7 @@
 %include "tesseract_swig_include.i"
 
 %import "tesseract_common_python.i"
+#endif
 
 %{
 #include <tesseract_common/status_code.h>
@@ -44,7 +47,7 @@
 %}
 
 // Define typemaps for types used by Mesh classes
-
+#ifdef SWIGPYTHON
 %define %tesseract_vector_eigen_shared_ptr_adaptor(TYPE)
 %typemap(in, noblock=0) std::shared_ptr<const TYPE > (void  *argp = 0, int res = 0, TYPE* temp1) {
 
@@ -115,7 +118,7 @@ $1 = is_array($input);
 %enddef
 
 %tesseract_eigen_shared_ptr_adaptor( Eigen::VectorXi )
-
+#endif
 // tesseract_geometry
 #define TESSERACT_GEOMETRY_PUBLIC
 
@@ -200,6 +203,7 @@ class OcTree {};
 
 
 %include "tesseract_geometry/mesh_parser.h"
+#ifdef SWIGPYTHON
 %pybuffer_binary(const uint8_t* bytes, size_t bytes_len);
 %template(createMeshFromResource) tesseract_geometry::createMeshFromResource<tesseract_geometry::Mesh>;
 %template(createSDFMeshFromResource) tesseract_geometry::createMeshFromResource<tesseract_geometry::SDFMesh>;
@@ -210,3 +214,4 @@ class OcTree {};
 %template(createMeshFromBytes) tesseract_geometry::createMeshFromBytes<tesseract_geometry::Mesh>;
 %template(createSDFMeshFromBytes) tesseract_geometry::createMeshFromBytes<tesseract_geometry::SDFMesh>;
 %template(createConvexMeshFromBytes) tesseract_geometry::createMeshFromBytes<tesseract_geometry::ConvexMesh>;
+#endif

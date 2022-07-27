@@ -24,6 +24,7 @@
  * limitations under the License.
  */
 
+#ifndef SWIGPYTHON
 %module(directors="1", package="tesseract_robotics.tesseract_collision") tesseract_collision_python
 
 #pragma SWIG nowarn=473
@@ -40,6 +41,7 @@ namespace tesseract_collision
 
 //%import "tesseract_common_python.i"
 %import "tesseract_geometry_python.i"
+#endif
 
 %{
 #include <tesseract_common/status_code.h>
@@ -94,7 +96,9 @@ class ContactResult;
 %include "tesseract_collision/core/continuous_contact_manager.h"
 %include "tesseract_collision/core/contact_managers_plugin_factory.h"
 
+#ifdef SWIGPYTHON
 %init %{
 tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_bullet::BulletFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
 tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_fcl::FCLFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
 %}
+#endif

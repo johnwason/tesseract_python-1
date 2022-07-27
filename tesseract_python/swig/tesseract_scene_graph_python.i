@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_scene_graph") tesseract_scene_graph_python
 
 #pragma SWIG nowarn=473
@@ -32,6 +34,7 @@
 
 //%import "tesseract_common_python.i"
 %import "tesseract_geometry_python.i"
+#endif
 
 %{
 

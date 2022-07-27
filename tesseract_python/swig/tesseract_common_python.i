@@ -24,6 +24,8 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
+
 %module(directors="1", package="tesseract_robotics.tesseract_common") tesseract_common_python
 
 #pragma SWIG nowarn=473
@@ -33,6 +35,8 @@
 %}
 
 %include "tesseract_swig_include.i"
+
+#endif
 
 %{
 
@@ -58,7 +62,9 @@
 %include "eigen_geometry.i"
 %include "console_bridge.i"
 
+#ifdef SWIG_PYTHON
 %pythondynamic sco::ModelType;
+#endif
 
 %template(vector_string) std::vector<std::string>;
 %template(set_string) std::set<std::string>;
@@ -129,6 +135,7 @@ namespace tesseract_common
 %ignore toXML(tinyxml2::XMLDocument& doc) const;
 %ignore CONFIG_KEY;
 
+#ifdef SWIGPYTHON
 %typemap(out, fragment="SWIG_From_std_string") std::string& {
   $result = SWIG_From_std_string(*$1);
 }
@@ -136,6 +143,7 @@ namespace tesseract_common
 %typemap(out, fragment="SWIG_From_std_string") const std::string& {
   $result = SWIG_From_std_string(*$1);
 }
+#endif
 
 %feature("valuewrapper") std::type_index;
 %nodefaultctor std::type_index;
@@ -162,7 +170,9 @@ namespace std
 #define TESSERACT_COMMON_IGNORE_WARNINGS_POP
 #define DEPRECATED(msg)
 
+#ifdef SWIGPYTHON
 %pythondynamic tesseract_common::ResourceLocator;
+#endif
 
 %include "tesseract_std_function.i"
 
@@ -172,7 +182,9 @@ namespace std
 
 %shared_ptr(tesseract_common::Resource)
 %template(vector_uint8) std::vector<uint8_t>;
+#ifdef SWIGPYTHON
 %pybuffer_binary(const uint8_t* bytes, size_t bytes_len);
+#endif
 %shared_ptr(tesseract_common::BytesResource)
 %feature("director") tesseract_common::ResourceLocator;
 %shared_ptr(tesseract_common::ResourceLocator)
@@ -234,6 +246,8 @@ namespace std
     throw std::runtime_error("tcp_offset is not a string");
   }
 
+#ifdef SWIGPYTHON
+
   %pythoncode %{
       def _getTcpOffset(self):
         if self._getTcpOffsetIndex() == 0:
@@ -242,6 +256,7 @@ namespace std
           return self._getTcpOffsetIsometry3d()
       tcp_offset = property(_getTcpOffset, _setTcpOffset)
   %}
+#endif
 }
 
 

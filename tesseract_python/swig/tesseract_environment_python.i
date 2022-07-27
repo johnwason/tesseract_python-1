@@ -24,6 +24,7 @@
  * limitations under the License.
  */
 
+#ifdef SWIGPYTHON
 %module(directors="1", package="tesseract_robotics.tesseract_environment") tesseract_environment_python
 
 #pragma SWIG nowarn=473
@@ -34,6 +35,8 @@
 %import "tesseract_collision_python.i"
 %import "tesseract_srdf_python.i"
 %import "tesseract_state_solver_python.i"
+
+#endif
 
 %{
 
