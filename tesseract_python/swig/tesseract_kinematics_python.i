@@ -70,7 +70,7 @@
 
 %}
 
-%template(pair_bool_matrix) std::pair<bool,Eigen::MatrixXd>;
+// %template(pair_bool_matrix) std::pair<bool,Eigen::MatrixXd>;
 
 //TODO: passing unique_ptr as parameter with move command
 %ignore tesseract_kinematics::KinematicGroup::KinematicGroup;
