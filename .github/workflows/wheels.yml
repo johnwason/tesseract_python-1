@@ -198,7 +198,22 @@ jobs:
       with:
         name: 'build-logs-win-${{ matrix.config.arch }}-python-${{ matrix.config.python_version }}'
         path: "**/*.log"
-        retention-days: 2 
-    
-    
-    
+        retention-days: 2
+  collect-wheels:
+    needs:
+      - build-win
+      - build-ubuntu
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        path: robotraconteur
+    - name: Download CI artifacts
+      uses: actions/download-artifact@v2
+      with:
+        path: artifacts/main
+    - name: archive wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: 'python-wheels-all'
+        path: artifacts/**/wheelhouse/*.whl
