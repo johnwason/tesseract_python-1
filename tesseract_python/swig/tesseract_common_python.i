@@ -209,7 +209,6 @@ namespace std
 %include "tesseract_common/allowed_collision_matrix.h"
 %include "tesseract_common/kinematic_limits.h"
 %include "tesseract_common/timer.h"
-%include "tesseract_common/filesystem.h"
 
 
 // TODO: ?

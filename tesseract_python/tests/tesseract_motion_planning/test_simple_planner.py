@@ -10,7 +10,7 @@ from tesseract_robotics.tesseract_command_language import JointWaypoint, Cartesi
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, \
     MoveInstructionPoly, MoveInstructionType_LINEAR, JointWaypointPoly, CartesianWaypointPoly, \
     InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
-    JointWaypointPoly_wrap_JointWaypoint, CartesianWaypointPoly_wrap_CartesianWaypoint, \
+    JointWaypointPoly_wrap_JointWaypoint, WaypointPoly, \
     MoveInstructionPoly_wrap_MoveInstruction
 from tesseract_robotics.tesseract_motion_planners import PlannerRequest
 from tesseract_robotics.tesseract_motion_planners_simple import SimplePlannerLVSPlanProfile
@@ -42,10 +42,9 @@ def test_interpolatestatewaypoint_jointcart_freespace():
     wp1 = JointWaypoint(joint_names, np.zeros((7,),dtype=np.float64))
     wp1_seed = JointWaypoint(joint_names, env.getState().getJointValues(joint_names))
     wp2 = CartesianWaypoint(joint_group.calcFwdKin(np.ones((7,),dtype=np.float64))[manip_info.tcp_frame])
-    instr1 = MoveInstruction(JointWaypointPoly_wrap_JointWaypoint(wp1), MoveInstructionType_FREESPACE, "TEST_PROFILE", manip_info)
-    instr1_seed = MoveInstruction(JointWaypointPoly_wrap_JointWaypoint(wp1), MoveInstructionType_LINEAR, "TEST_PROFILE", manip_info)
-    instr1_seed.assignJointWaypoint(JointWaypointPoly_wrap_JointWaypoint(wp1_seed))
-    instr2 = MoveInstruction(CartesianWaypointPoly_wrap_CartesianWaypoint(wp2), MoveInstructionType_FREESPACE, "TEST_PROFILE", manip_info)
+    instr1 = MoveInstruction(WaypointPoly(wp1), MoveInstructionType_FREESPACE, "TEST_PROFILE", manip_info)
+    instr1_seed = MoveInstruction(WaypointPoly(wp1), MoveInstructionType_LINEAR, "TEST_PROFILE", manip_info)
+    instr2 = MoveInstruction(WaypointPoly(wp2), MoveInstructionType_FREESPACE, "TEST_PROFILE", manip_info)
  
     instr3 = InstructionPoly()
 

@@ -20,7 +20,7 @@ function(tesseract_python_module PY_MOD_NAME )
   else()
     swig_add_module(${PY_MOD_NAME} python ${PY_MOD_SWIG_SRCS})
   endif()
-  swig_link_libraries(${PY_MOD_NAME} ${PY_MOD_LIBS} jsoncpp_lib ${TinyXML2_LIBRARIES} ${EIGEN3_LIBRARIES} ${PYTHON_LIBRARIES})
+  swig_link_libraries(${PY_MOD_NAME} ${PY_MOD_LIBS} jsoncpp_lib ${TinyXML2_LIBRARIES} ${EIGEN3_LIBRARIES} ${PYTHON_LIBRARIES} boost_plugin_loader::boost_plugin_loader)
 
   set(PY_MOD_REAL_NAME1 SWIG_MODULE_${PY_MOD_NAME}_REAL_NAME)
   set(PY_MOD_REAL_NAME ${${PY_MOD_REAL_NAME1}})

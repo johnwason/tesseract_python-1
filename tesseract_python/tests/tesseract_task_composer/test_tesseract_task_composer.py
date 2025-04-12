@@ -4,6 +4,7 @@ import os
 import numpy as np
 import numpy.testing as nptest
 
+from tesseract_robotics import tesseract_common
 from tesseract_robotics.tesseract_common import ResourceLocator, SimpleLocatedResource
 from tesseract_robotics.tesseract_environment import Environment, AnyPoly_wrap_EnvironmentConst
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
@@ -15,7 +16,7 @@ from tesseract_robotics.tesseract_command_language import CartesianWaypoint, Way
         AnyPoly_wrap_CompositeInstruction, DEFAULT_PROFILE_KEY, JointWaypoint, JointWaypointPoly, \
         InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
         MoveInstructionPoly_wrap_MoveInstruction, StateWaypointPoly_wrap_StateWaypoint, \
-        CartesianWaypointPoly_wrap_CartesianWaypoint, JointWaypointPoly_wrap_JointWaypoint, \
+        WaypointPoly, JointWaypointPoly_wrap_JointWaypoint, \
         AnyPoly_wrap_ProfileDictionary
 
 # from tesseract_robotics.tesseract_motion_planners import PlannerRequest, PlannerResponse, generateInterpolatedProgram
@@ -36,6 +37,8 @@ TRAJOPT_DEFAULT_NAMESPACE = "TrajOptMotionPlannerTask"
 
 TESSERACT_SUPPORT_DIR = os.environ["TESSERACT_SUPPORT_DIR"]
 TESSERACT_TASK_COMPOSER_DIR = os.environ["TESSERACT_TASK_COMPOSER_DIR"]
+
+tesseract_common.setLogLevel(tesseract_common.CONSOLE_BRIDGE_LOG_DEBUG)
 
 def get_environment():
     env = Environment()
@@ -58,19 +61,19 @@ def freespace_example_progam_iiwa(manipulator_info, goal = None, composite_profi
     program = CompositeInstruction(DEFAULT_PROFILE_KEY, manipulator_info, CompositeInstructionOrder_ORDERED)
     joint_names = ["joint_a1", "joint_a2", "joint_a3", "joint_a4", "joint_a5", "joint_a6", "joint_a7"]
     joint_values = np.zeros((7,))
-    wp1 = StateWaypointPoly_wrap_StateWaypoint(StateWaypoint(joint_names, joint_values))
-    start_instruction = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp1, MoveInstructionType_FREESPACE, freespace_profile))
+    wp1 = WaypointPoly(StateWaypoint(joint_names, joint_values))
+    start_instruction = InstructionPoly(MoveInstruction(wp1, MoveInstructionType_FREESPACE, freespace_profile))
     start_instruction.setDescription("Start Instruction")
 
-    wp2 = CartesianWaypointPoly_wrap_CartesianWaypoint(CartesianWaypoint(goal))
-    plan_f0 = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp2, MoveInstructionType_FREESPACE, freespace_profile))
+    wp2 = WaypointPoly(CartesianWaypoint(goal))
+    plan_f0 = InstructionPoly(MoveInstruction(wp2, MoveInstructionType_FREESPACE, freespace_profile))
     plan_f0.setDescription("freespace_motion")
-    program.appendMoveInstruction(start_instruction)
-    program.appendMoveInstruction(plan_f0)
+    program.push_back(start_instruction)
+    program.push_back(plan_f0)
 
-    wp3 = JointWaypointPoly_wrap_JointWaypoint(JointWaypoint(joint_names, np.zeros((7,))))
-    plan_f1 = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp3, MoveInstructionType_FREESPACE))
-    program.appendMoveInstruction(plan_f1)
+    wp3 = WaypointPoly(JointWaypoint(joint_names, np.zeros((7,))))
+    plan_f1 = InstructionPoly(MoveInstruction(wp3, MoveInstructionType_FREESPACE))
+    program.push_back(plan_f1)
 
     return program
 
@@ -115,11 +118,11 @@ def test_task_composer_trajopt_example():
         future.wait()
 
         output_program = AnyPoly_as_CompositeInstruction(future.context.data_storage.getData(output_key))
-        assert len(output_program) == 11
+        assert output_program.size() == 11
 
         # Print out the output program
-        for i in range(len(output_program)):
-            instr = output_program[i]
+        for i in range(output_program.size()):
+            instr = output_program.at(i)
             if instr.isMoveInstruction():
                 move_instr = InstructionPoly_as_MoveInstructionPoly(instr)
                 wp = move_instr.getWaypoint()

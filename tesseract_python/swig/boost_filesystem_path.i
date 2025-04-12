@@ -25,10 +25,10 @@
  */
 
 %{
-#include <boost/filesystem/path.hpp>
+#include <filesystem>
 %}
 
-namespace boost
+namespace std
 {
 namespace filesystem
 {
@@ -63,4 +63,4 @@ def __str__(self):
 }
 }
 
-%template(VectorFilesystemPath) std::vector<boost::filesystem::path>;
+%template(VectorFilesystemPath) std::vector<std::filesystem::path>;

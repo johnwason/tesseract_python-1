@@ -137,8 +137,8 @@ const tesseract_planning::TYPE as_const_ ## TYPE() {return $self->as<const tesse
 %tesseract_any_poly_type_planning(TYPE);
 %enddef
 
-%tesseract_std_function(flattenFilterFn,tesseract_planning,bool,const tesseract_planning::InstructionPoly&,a,const tesseract_planning::CompositeInstruction&,b,bool,c);
-%tesseract_std_function(locateFilterFn,tesseract_planning,bool,const tesseract_planning::InstructionPoly&,a,const tesseract_planning::CompositeInstruction&,b,bool,c);
+%tesseract_std_function(flattenFilterFn,tesseract_planning,bool,const tesseract_planning::InstructionPoly&,a,const tesseract_planning::CompositeInstruction&,b);
+%tesseract_std_function(locateFilterFn,tesseract_planning,bool,const tesseract_planning::InstructionPoly&,a,const tesseract_planning::CompositeInstruction&,b);
 
 // %include "tesseract_command_language/fwd.h"
 
@@ -154,12 +154,12 @@ const tesseract_planning::TYPE as_const_ ## TYPE() {return $self->as<const tesse
 %pythondynamic tesseract_planning::InstructionPoly;
 %pythondynamic tesseract_planning::WaypointPoly;
 
-%include "rework_include/tesseract_command_language/poly/waypoint_poly.i"
-%include "rework_include/tesseract_command_language/poly/cartesian_waypoint_poly.i"
-%include "rework_include/tesseract_command_language/poly/joint_waypoint_poly.i"
-%include "rework_include/tesseract_command_language/poly/state_waypoint_poly.i"
-%include "rework_include/tesseract_command_language/poly/instruction_poly.i"
-%include "rework_include/tesseract_command_language/poly/move_instruction_poly.i"
+%include "tesseract_command_language/poly/waypoint_poly.h"
+%include "tesseract_command_language/poly/cartesian_waypoint_poly.h"
+%include "tesseract_command_language/poly/joint_waypoint_poly.h"
+%include "tesseract_command_language/poly/state_waypoint_poly.h"
+%include "tesseract_command_language/poly/instruction_poly.h"
+%include "tesseract_command_language/poly/move_instruction_poly.h"
 
 %tesseract_command_language_add_waypoint_poly_type(CartesianWaypointPoly)
 %tesseract_erasure_ctor_planning(CartesianWaypointPoly,CartesianWaypoint);
@@ -206,7 +206,7 @@ const tesseract_planning::TYPE as_const_ ## TYPE() {return $self->as<const tesse
 %include "tesseract_command_language/set_analog_instruction.h"
 %tesseract_command_language_add_instruction_type(SetAnalogInstruction)
 
-%include "rework_include/tesseract_command_language/composite_instruction.i"
+%include "tesseract_command_language/composite_instruction.h"
 %tesseract_command_language_add_instruction_type(CompositeInstruction)
 
 // TODO: implement validateSeedStructure

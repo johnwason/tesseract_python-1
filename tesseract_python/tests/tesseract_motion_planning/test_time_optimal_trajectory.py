@@ -19,14 +19,14 @@ def create_straight_trajectory():
         p = np.zeros((6,),dtype=np.float64)
         p[0] = i * (max_/num)
         swp = StateWaypoint(joint_names, p)        
-        program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(
-            StateWaypointPoly_wrap_StateWaypoint(swp), MoveInstructionType_FREESPACE)))
+        program.push_back(InstructionPoly(MoveInstruction(
+            WaypointPoly(swp), MoveInstructionType_FREESPACE)))
 
     p = np.zeros((6,),dtype=np.float64)
     p[0] = max_
     swp = StateWaypoint(joint_names, p)
-    program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(
-            StateWaypointPoly_wrap_StateWaypoint(swp), MoveInstructionType_FREESPACE)))
+    program.push_back(InstructionPoly(MoveInstruction(
+            WaypointPoly(swp), MoveInstructionType_FREESPACE)))
 
     return program
 
@@ -43,9 +43,9 @@ def test_time_parameterization():
     max_jerk = np.array([[ 1, 1, 1, 1, 1, 1]],dtype=np.float64)
     max_jerk = np.hstack((-max_jerk.T, max_jerk.T))
     assert time_parameterization.compute(traj, max_velocity, max_acceleration, max_jerk)
-    instr1 = program[-1]
+    instr1 = program.getLastInstruction()
     instr1_1 = InstructionPoly_as_MoveInstructionPoly(instr1)
     result_wp1 = instr1_1.getWaypoint()
     assert WaypointPoly_as_StateWaypointPoly(result_wp1).getTime() > 1.0
-    instr1_2 = InstructionPoly_as_MoveInstructionPoly(program[-1])
+    instr1_2 = InstructionPoly_as_MoveInstructionPoly(program.getLastInstruction())
     assert WaypointPoly_as_StateWaypointPoly(instr1_2.getWaypoint()).getTime() < 5.0

@@ -18,15 +18,15 @@ def create_straight_trajectory():
         p = np.zeros((6,),dtype=np.float64)
         p[0] = i * (max_/num)
         swp = StateWaypoint(joint_names, p)        
-        program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(
-                                        StateWaypointPoly_wrap_StateWaypoint(swp), 
+        program.push_back(InstructionPoly(MoveInstruction(
+                                        WaypointPoly(swp), 
                                         MoveInstructionType_FREESPACE)))
 
     p = np.zeros((6,),dtype=np.float64)
     p[0] = max_
     swp = StateWaypoint(joint_names, p)
-    program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(
-                                    StateWaypointPoly_wrap_StateWaypoint(swp), 
+    program.push_back(InstructionPoly(MoveInstruction(
+                                    WaypointPoly(swp), 
                                     MoveInstructionType_FREESPACE)))
 
     return program
@@ -44,9 +44,9 @@ def test_time_parameterization():
     max_jerk = np.array([[ 1, 1, 1, 1, 1, 1]],dtype=np.float64)
     max_jerk = np.hstack((-max_jerk.T, max_jerk.T))
     assert time_parameterization.compute(traj, max_velocity, max_acceleration, max_jerk)
-    res_instr1 = InstructionPoly_as_MoveInstructionPoly(program[-1])
+    res_instr1 = InstructionPoly_as_MoveInstructionPoly(program.getLastInstruction())
     WaypointPoly_as_StateWaypointPoly(res_instr1.getWaypoint()).getTime() > 1.0
-    res_instr2 = InstructionPoly_as_MoveInstructionPoly(program[-1])
+    res_instr2 = InstructionPoly_as_MoveInstructionPoly(program.getLastInstruction())
     WaypointPoly_as_StateWaypointPoly(res_instr2.getWaypoint()).getTime() < 5.0
 
 def test_time_parameterization_vec():
@@ -62,7 +62,7 @@ def test_time_parameterization_vec():
     max_jerk = np.array([[ 1, 1, 1, 1, 1, 1]],dtype=np.float64)
     max_jerk = np.hstack((-max_jerk.T, max_jerk.T))
     assert time_parameterization.compute(traj, max_velocity, max_acceleration, max_jerk)
-    res_instr1 = InstructionPoly_as_MoveInstructionPoly(program[-1])
+    res_instr1 = InstructionPoly_as_MoveInstructionPoly(program.getLastInstruction())
     WaypointPoly_as_StateWaypointPoly(res_instr1.getWaypoint()).getTime() > 1.0
-    res_instr2 = InstructionPoly_as_MoveInstructionPoly(program[-1])
+    res_instr2 = InstructionPoly_as_MoveInstructionPoly(program.getLastInstruction())
     WaypointPoly_as_StateWaypointPoly(res_instr2.getWaypoint()).getTime() < 5.0

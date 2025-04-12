@@ -12,7 +12,7 @@ from tesseract_robotics.tesseract_command_language import  JointWaypoint, Cartes
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, \
     CompositeInstruction, ProfileDictionary, CartesianWaypointPoly, JointWaypointPoly, MoveInstructionPoly, \
     InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
-    JointWaypointPoly_wrap_JointWaypoint, CartesianWaypointPoly_wrap_CartesianWaypoint, \
+    JointWaypointPoly_wrap_JointWaypoint, WaypointPoly, \
     MoveInstructionPoly_wrap_MoveInstruction
 from tesseract_robotics.tesseract_motion_planners import PlannerRequest, PlannerResponse
 from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultPlanProfile, TrajOptDefaultCompositeProfile, \
@@ -46,13 +46,13 @@ def test_trajopt_freespace_joint_cart():
     wp1 = JointWaypoint(joint_names, np.array([0,0,0,-1.57,0,0,0],dtype=np.float64))
     wp2 = CartesianWaypoint(Isometry3d.Identity() * Translation3d(-.2,.4,0.2) * Quaterniond(0,0,1.0,0))
 
-    start_instruction = MoveInstruction(JointWaypointPoly_wrap_JointWaypoint(wp1), MoveInstructionType_FREESPACE, "TEST_PROFILE")
-    plan_f1 = MoveInstruction(CartesianWaypointPoly_wrap_CartesianWaypoint(wp2), MoveInstructionType_FREESPACE, "TEST_PROFILE")
+    start_instruction = MoveInstruction(WaypointPoly(wp1), MoveInstructionType_FREESPACE, "TEST_PROFILE")
+    plan_f1 = MoveInstruction(WaypointPoly(wp2), MoveInstructionType_FREESPACE, "TEST_PROFILE")
 
     program = CompositeInstruction("TEST_PROFILE")
     program.setManipulatorInfo(manip)
-    program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(start_instruction))
-    program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(plan_f1))
+    program.push_back(InstructionPoly(start_instruction))
+    program.push_back(InstructionPoly(plan_f1))
 
     interpolated_program = generateInterpolatedProgram(program, env, 3.14, 1.0, 3.14, 10)
 

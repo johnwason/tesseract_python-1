@@ -39,7 +39,8 @@
 %{
 
 // tesseract_common
-#include <tesseract_common/plugin_loader.h>
+#include <boost_plugin_loader/plugin_loader.h>
+#include <boost_plugin_loader/macros.h>
 
 // tesseract_kinematics
 #include <tesseract_kinematics/core/joint_group.h>
@@ -71,12 +72,12 @@
 
 // tesseract_motion_planners_trajopt
 #include <tesseract_motion_planners/trajopt/trajopt_motion_planner.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
+//#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
 #include <tesseract_motion_planners/trajopt/trajopt_utils.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_profile.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_default_composite_profile.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_default_plan_profile.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
+//#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
 
 // tesseract_motion_planners_ompl
 #include <tesseract_motion_planners/ompl/ompl_planner_configurator.h>
@@ -143,6 +144,8 @@
 #include <tesseract_state_solver/ofkt/ofkt_state_solver.h>
 
 #include "tesseract_environment_python_std_functions.h"
+
+#include <boost_plugin_loader/plugin_loader.hpp>
 
 
 %}
@@ -347,9 +350,9 @@ enum class future_status {
 
 %init %{
 // TODO: fix anchors
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerPlanningFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskflowFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskFactoryAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerPlanningFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskflowFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskFactoryAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
 
 %}
 

@@ -39,13 +39,13 @@
 
 // tesseract_motion_planners_trajopt
 #include <tesseract_motion_planners/trajopt/trajopt_motion_planner.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
+//#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
 #include <tesseract_motion_planners/trajopt/trajopt_utils.h>
 #include <tesseract_motion_planners/trajopt/trajopt_waypoint_config.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_profile.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_default_composite_profile.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_default_plan_profile.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
+//#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
 
 
 #include <tesseract_geometry/geometries.h>
@@ -93,7 +93,7 @@
 %ignore createOptimizationCallbacks;
 
 // Including trajopt headers is too noisy, use *.i file instead
-%include "trajopt/problem_description.i"
+//%include "trajopt/problem_description.i"
 
 // %tesseract_std_function_base(TrajOptProblemGeneratorFn,tesseract_planning,std::shared_ptr<trajopt::ProblemConstructionInfo>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::TrajOptPlanProfileMap&,c,const tesseract_planning::TrajOptCompositeProfileMap&,d,const tesseract_planning::TrajOptSolverProfileMap&,e);
 // %tesseract_std_function(TrajOptProblemGeneratorFn,tesseract_planning,std::shared_ptr<trajopt::ProblemConstructionInfo>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::TrajOptPlanProfileMap&,c,const tesseract_planning::TrajOptCompositeProfileMap&,d,const tesseract_planning::TrajOptSolverProfileMap&,e);
@@ -101,7 +101,7 @@
 // tesseract_motion_planners_trajopt
 #define TESSERACT_MOTION_PLANNERS_TRAJOPT_PUBLIC
 
-%include "tesseract_motion_planners/trajopt/trajopt_collision_config.h"
+//%include "tesseract_motion_planners/trajopt/trajopt_collision_config.h"
 %include "tesseract_motion_planners/trajopt/trajopt_waypoint_config.h"
 
 %pythondynamic tesseract_planning::TrajOptPlanProfile;
@@ -128,7 +128,7 @@
 
 %include "tesseract_motion_planners/trajopt/trajopt_utils.h"
 
-%include "tesseract_motion_planners/trajopt/trajopt_collision_config.h"
+//%include "tesseract_motion_planners/trajopt/trajopt_collision_config.h"
 
 %pythondynamic tesseract_planning::TrajOptMotionPlanner;
 %shared_ptr(tesseract_planning::TrajOptMotionPlanner)

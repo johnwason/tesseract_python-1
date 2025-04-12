@@ -30,8 +30,8 @@ class flattenFilterFnBase
 {
 public:
   virtual bool call(const tesseract_planning::InstructionPoly&,
-                    const tesseract_planning::CompositeInstruction&,
-                    bool parent_is_first_composite) = 0;
+                    const tesseract_planning::CompositeInstruction&
+                    ) = 0;
   virtual ~flattenFilterFnBase() {}
 };
 
@@ -39,7 +39,7 @@ class locateFilterFnBase
 {
 public:
   virtual bool call(const tesseract_planning::InstructionPoly&,
-                    const tesseract_planning::CompositeInstruction&,
-                    bool parent_is_first_composite) = 0;
+                    const tesseract_planning::CompositeInstruction&
+                    ) = 0;
   virtual ~locateFilterFnBase() {}
 };

@@ -47,6 +47,8 @@ get_target_property(TinyXML2_INCLUDE_DIRS tinyxml2::tinyxml2 INTERFACE_INCLUDE_D
 message(STATUS "Found from target interface: TinyXML2_INCLUDE_DIRS=${TinyXML2_INCLUDE_DIRS}")
 endif()
 
+find_package(boost_plugin_loader REQUIRED)
+
 tesseract_variables()
 
 find_bullet()
