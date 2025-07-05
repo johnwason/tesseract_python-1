@@ -9,7 +9,7 @@ import time
 import sys
 
 shapes_urdf="""
-<robot name="mesh_viewer">
+<robot name="mesh_viewer" xmlns:tesseract="https://github.com/tesseract-robotics/tesseract" tesseract:make_convex="true">
   
   <link name="world"/>
   <link name="mesh_gltf2_link">

@@ -24,7 +24,7 @@ import sys
 import ssl
 
 shapes_urdf="""
-<robot name="multipleshapes">
+<robot name="multipleshapes" xmlns:tesseract="https://github.com/tesseract-robotics/tesseract" tesseract:make_convex="true">
   
   <link name="world"/>
   <link name="cylinder_link">

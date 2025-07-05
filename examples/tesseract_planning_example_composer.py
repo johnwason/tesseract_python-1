@@ -4,19 +4,19 @@ import os
 import numpy as np
 import numpy.testing as nptest
 
-from tesseract_robotics.tesseract_common import GeneralResourceLocator, ProfileDictionary
+from tesseract_robotics.tesseract_common import GeneralResourceLocator, ProfileDictionary, \
+    AnyPoly_wrap_ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment, AnyPoly_wrap_EnvironmentConst
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
     ManipulatorInfo, AnyPoly, AnyPoly_wrap_double
 from tesseract_robotics.tesseract_command_language import CartesianWaypoint, WaypointPoly, \
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, StateWaypoint, StateWaypointPoly, \
     CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, \
-        AnyPoly_as_CompositeInstruction, CompositeInstructionOrder_ORDERED, DEFAULT_PROFILE_KEY, \
-        AnyPoly_wrap_CompositeInstruction, DEFAULT_PROFILE_KEY, JointWaypoint, JointWaypointPoly, \
-        InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
-        MoveInstructionPoly_wrap_MoveInstruction, StateWaypointPoly_wrap_StateWaypoint, \
-        CartesianWaypointPoly_wrap_CartesianWaypoint, JointWaypointPoly_wrap_JointWaypoint, \
-        AnyPoly_wrap_ProfileDictionary
+    AnyPoly_as_CompositeInstruction, CompositeInstructionOrder_ORDERED, DEFAULT_PROFILE_KEY, \
+    AnyPoly_wrap_CompositeInstruction, DEFAULT_PROFILE_KEY, JointWaypoint, JointWaypointPoly, \
+    InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
+    InstructionPoly_wrap_MoveInstruction, WaypointPoly_wrap_StateWaypoint, \
+    WaypointPoly_wrap_CartesianWaypoint, WaypointPoly_wrap_JointWaypoint
 
 from tesseract_robotics.tesseract_task_composer import TaskComposerPluginFactory, \
     TaskComposerDataStorage, TaskComposerContext
@@ -115,16 +115,16 @@ wp3 = CartesianWaypoint(Isometry3d.Identity() * Translation3d(0.8,0.5,1.455) * Q
 # Create the input command program instructions. Note the use of explicit construction of the CartesianWaypointPoly
 # using the *_wrap_CartesianWaypoint functions. This is required because the Python bindings do not support implicit
 # conversion from the CartesianWaypoint to the CartesianWaypointPoly.
-start_instruction = MoveInstruction(CartesianWaypointPoly_wrap_CartesianWaypoint(wp1), MoveInstructionType_FREESPACE, "DEFAULT")
-plan_f1 = MoveInstruction(CartesianWaypointPoly_wrap_CartesianWaypoint(wp2), MoveInstructionType_FREESPACE, "DEFAULT")
-plan_f2 = MoveInstruction(CartesianWaypointPoly_wrap_CartesianWaypoint(wp3), MoveInstructionType_FREESPACE, "DEFAULT")
+start_instruction = MoveInstruction(WaypointPoly_wrap_CartesianWaypoint(wp1), MoveInstructionType_FREESPACE, "DEFAULT")
+plan_f1 = MoveInstruction(WaypointPoly_wrap_CartesianWaypoint(wp2), MoveInstructionType_FREESPACE, "DEFAULT")
+plan_f2 = MoveInstruction(WaypointPoly_wrap_CartesianWaypoint(wp3), MoveInstructionType_FREESPACE, "DEFAULT")
 
 # Create the input command program. Note the use of *_wrap_MoveInstruction functions. This is required because the
 # Python bindings do not support implicit conversion from the MoveInstruction to the MoveInstructionPoly.
 program = CompositeInstruction("DEFAULT")
 program.setManipulatorInfo(manip_info)
-program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(start_instruction))
-program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(plan_f1))
+program.append(InstructionPoly_wrap_MoveInstruction(start_instruction))
+program.append(InstructionPoly_wrap_MoveInstruction(plan_f1))
 # program.appendMoveInstruction(MoveInstructionPoly(plan_f2))
 
 # Create the task composer plugin factory and load the plugins

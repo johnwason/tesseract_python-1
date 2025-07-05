@@ -56,7 +56,7 @@ print("Translation: " + str(tool0_transform.translation().flatten()))
 print(f"Rotation: {q.w()} {q.x()} {q.y()} {q.z()}")
 
 # Solve inverse kinematics at a specific tool0 pose
-tool0_transform2 = Isometry3d.Identity() * Translation3d(0.7, -0.1, 1) * Quaterniond(0.70711, 0, 0.7171, 0)
+tool0_transform2 = Isometry3d.Identity() * Translation3d(0.7, -0.1, 1) * Quaterniond(0.7071068, 0, 0.7071068, 0)
 
 # Create a KinGroupIKInput and KinGroupIKInputs object. The KinGroupIKInputs object is a list of KinGroupIKInput
 ik = KinGroupIKInput()
