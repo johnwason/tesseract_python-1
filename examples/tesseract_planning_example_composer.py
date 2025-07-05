@@ -4,13 +4,13 @@ import os
 import numpy as np
 import numpy.testing as nptest
 
-from tesseract_robotics.tesseract_common import GeneralResourceLocator
+from tesseract_robotics.tesseract_common import GeneralResourceLocator, ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment, AnyPoly_wrap_EnvironmentConst
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
     ManipulatorInfo, AnyPoly, AnyPoly_wrap_double
 from tesseract_robotics.tesseract_command_language import CartesianWaypoint, WaypointPoly, \
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, StateWaypoint, StateWaypointPoly, \
-    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, ProfileDictionary, \
+    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, \
         AnyPoly_as_CompositeInstruction, CompositeInstructionOrder_ORDERED, DEFAULT_PROFILE_KEY, \
         AnyPoly_wrap_CompositeInstruction, DEFAULT_PROFILE_KEY, JointWaypoint, JointWaypointPoly, \
         InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \

@@ -69,6 +69,8 @@
 #include <tesseract_kinematics/opw/opw_factory.h>
 #include <tesseract_kinematics/ur/ur_factory.h>
 
+#include <boost_plugin_loader/utils.h>
+
 %}
 
 %template(pair_bool_matrix) std::pair<bool,Eigen::MatrixXd>;
@@ -132,11 +134,11 @@ struct KinGroupIKInput;
 
 %init %{
 // TODO: fix anchors
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::REPInvKinFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::ROPInvKinFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::KDLFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::OPWFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::URFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::REPInvKinFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::ROPInvKinFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::KDLFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::OPWFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_kinematics::URFactoriesAnchor(), "TESSERACT_KINEMATICS_PLUGINS");
 
 
 

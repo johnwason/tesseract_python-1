@@ -12,7 +12,7 @@ import traceback
 import numpy.testing as nptest
 
 mesh_urdf="""
-<robot name="mesh_viewer">
+<robot name="mesh_viewer" xmlns:tesseract="https://github.com/tesseract-robotics/tesseract" tesseract:make_convex="true">
   
   <link name="world"/>
   <link name="mesh_dae_link">

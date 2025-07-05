@@ -35,6 +35,10 @@
 %import "tesseract_srdf_python.i"
 %import "tesseract_state_solver_python.i"
 
+%pythonbegin %{
+import tesseract_robotics.tesseract_geometry
+%}
+
 %{
 
 #include <boost/graph/adjacency_list.hpp>

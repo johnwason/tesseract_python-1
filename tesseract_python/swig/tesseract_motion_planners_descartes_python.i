@@ -40,7 +40,7 @@
 %{
 // tesseract_motion_planner_descartes
 #include <tesseract_motion_planners/descartes/profile/descartes_profile.h>
-#include <tesseract_motion_planners/descartes/profile/descartes_default_plan_profile.h>
+#include <tesseract_motion_planners/descartes/profile/descartes_default_move_profile.h>
 #include <tesseract_motion_planners/descartes/descartes_motion_planner.h>
 
 
@@ -67,7 +67,7 @@
 #include <tesseract_command_language/fwd.h>
 #include <tesseract_command_language/move_instruction.h>
 #include <tesseract_command_language/composite_instruction.h>
-#include <tesseract_command_language/profile_dictionary.h>
+#include <tesseract_common/profile_dictionary.h>
 
 // tesseract_motion_planners
 #include <tesseract_motion_planners/core/planner.h>
@@ -92,20 +92,20 @@
 %tesseract_std_function_base(PoseSamplerFn,tesseract_planning,tesseract_common::VectorIsometry3d,const Eigen::Isometry3d&,a);
 %tesseract_std_function(PoseSamplerFn,tesseract_planning,tesseract_common::VectorIsometry3d,const Eigen::Isometry3d&,a);
 
-%pythondynamic tesseract_planning::DescartesPlanProfileD;
-%shared_ptr(tesseract_planning::DescartesPlanProfile<double>)
+%pythondynamic tesseract_planning::DescartesMoveProfileD;
+%shared_ptr(tesseract_planning::DescartesMoveProfile<double>)
 %include "tesseract_motion_planners/descartes/profile/descartes_profile.h"
-%template(DescartesPlanProfileD) std::shared_ptr<tesseract_planning::DescartesPlanProfile<double> >;
-%template(DescartesPlanProfileMapD) std::unordered_map<std::string, std::shared_ptr<const tesseract_planning::DescartesPlanProfile<double>>>;
-namespace tesseract_planning {using DescartesPlanProfileMapD = std::unordered_map<std::string, std::shared_ptr<const DescartesPlanProfile<double>>>;}
-%tesseract_command_language_add_profile_type2(DescartesPlanProfileD,DescartesPlanProfile<double>);
+%template(DescartesMoveProfileD) std::shared_ptr<tesseract_planning::DescartesMoveProfile<double> >;
+%template(DescartesMoveProfileMapD) std::unordered_map<std::string, std::shared_ptr<const tesseract_planning::DescartesMoveProfile<double>>>;
+namespace tesseract_planning {using DescartesMoveProfileMapD = std::unordered_map<std::string, std::shared_ptr<const DescartesMoveProfile<double>>>;}
+%tesseract_command_language_add_profile_type2(DescartesMoveProfileD,DescartesMoveProfile<double>);
 
-%pythondynamic tesseract_planning::DescartesDefaultPlanProfileD;
-%shared_ptr(tesseract_planning::DescartesDefaultPlanProfile<double>)
-%ignore tesseract_planning::DescartesDefaultPlanProfile::edge_evaluator;
-%ignore tesseract_planning::DescartesDefaultPlanProfile::is_valid;
-%include "tesseract_motion_planners/descartes/profile/descartes_default_plan_profile.h"
-%template(DescartesDefaultPlanProfileD) tesseract_planning::DescartesDefaultPlanProfile<double>;
+%pythondynamic tesseract_planning::DescartesDefaultMoveProfileD;
+%shared_ptr(tesseract_planning::DescartesDefaultMoveProfile<double>)
+%ignore tesseract_planning::DescartesDefaultMoveProfile::edge_evaluator;
+%ignore tesseract_planning::DescartesDefaultMoveProfile::is_valid;
+%include "tesseract_motion_planners/descartes/profile/descartes_default_move_profile.h"
+%template(DescartesDefaultMoveProfileD) tesseract_planning::DescartesDefaultMoveProfile<double>;
 
 %pythondynamic tesseract_planning::DescartesMotionPlannerD;
 %pythondynamic tesseract_planning::DescartesMotionPlanner<double>;
@@ -116,8 +116,8 @@ namespace tesseract_planning {using DescartesPlanProfileMapD = std::unordered_ma
 %template(DescartesMotionPlannerD) tesseract_planning::DescartesMotionPlanner<double>;
 
 %inline {
-    std::shared_ptr<tesseract_planning::Profile> cast_DescartesPlanProfileD(
-        const std::shared_ptr<tesseract_planning::DescartesDefaultPlanProfile<double>>& a
+    std::shared_ptr<tesseract_common::Profile> cast_DescartesMoveProfileD(
+        const std::shared_ptr<tesseract_planning::DescartesDefaultMoveProfile<double>>& a
     )
     {
         return a;

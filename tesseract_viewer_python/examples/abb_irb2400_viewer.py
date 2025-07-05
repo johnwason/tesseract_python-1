@@ -1,19 +1,19 @@
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
-    ManipulatorInfo, GeneralResourceLocator
+    ManipulatorInfo, GeneralResourceLocator, ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment
 from tesseract_robotics.tesseract_common import ResourceLocator, SimpleLocatedResource
 from tesseract_robotics.tesseract_command_language import CartesianWaypoint, WaypointPoly, \
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, \
-    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, ProfileDictionary, \
+    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, \
     CartesianWaypointPoly_wrap_CartesianWaypoint, MoveInstructionPoly_wrap_MoveInstruction
 
 from tesseract_robotics.tesseract_motion_planners import PlannerRequest, PlannerResponse
 from tesseract_robotics.tesseract_motion_planners_simple import generateInterpolatedProgram
 from tesseract_robotics.tesseract_motion_planners_ompl import RRTConnectConfigurator, \
-    OMPLMotionPlanner, OMPLRealVectorPlanProfile
+    OMPLMotionPlanner, OMPLRealVectorMoveProfile
 from tesseract_robotics.tesseract_time_parameterization import TimeOptimalTrajectoryGeneration, \
     InstructionsTrajectory
-from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultPlanProfile, TrajOptDefaultCompositeProfile, \
+from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultMoveProfile, TrajOptDefaultCompositeProfile, \
     TrajOptMotionPlanner
 
 import os
@@ -70,7 +70,7 @@ program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(start_ins
 program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(plan_f1))
 # program.appendMoveInstruction(MoveInstructionPoly(plan_f2))
 
-plan_profile = OMPLRealVectorPlanProfile()
+plan_profile = OMPLRealVectorMoveProfile()
 
 profiles = ProfileDictionary()
 profiles.addProfile(OMPL_DEFAULT_NAMESPACE, "DEFAULT", plan_profile)
@@ -88,7 +88,7 @@ results_instruction = response.results
 
 interpolated_results_instruction = generateInterpolatedProgram(results_instruction, t_env, 3.14, 1.0, 3.14, 10)
 
-trajopt_plan_profile = TrajOptDefaultPlanProfile()
+trajopt_plan_profile = TrajOptDefaultMoveProfile()
 trajopt_composite_profile = TrajOptDefaultCompositeProfile()
 
 trajopt_profiles = ProfileDictionary()

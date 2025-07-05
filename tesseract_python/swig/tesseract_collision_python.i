@@ -60,6 +60,8 @@ namespace tesseract_collision
 #include <tesseract_geometry/geometries.h>
 
 #include "tesseract_collisions_python_std_functions.h"
+
+#include <boost_plugin_loader/utils.h>
 %}
 
 %ignore getIsContactAllowedFn;
@@ -102,6 +104,6 @@ class ContactResult;
 
 %init %{
 // TODO: fix anchors
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_bullet::BulletFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_fcl::FCLFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_bullet::BulletFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_collision::tesseract_collision_fcl::FCLFactoriesAnchor(), "TESSERACT_CONTACT_MANAGERS_PLUGINS");
 %}

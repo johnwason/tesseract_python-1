@@ -37,7 +37,7 @@
 // tesseract_motion_planners_ompl
 #include <tesseract_motion_planners/ompl/ompl_planner_configurator.h>
 #include <tesseract_motion_planners/ompl/profile/ompl_profile.h>
-#include <tesseract_motion_planners/ompl/profile/ompl_real_vector_plan_profile.h>
+#include <tesseract_motion_planners/ompl/profile/ompl_real_vector_move_profile.h>
 #include <tesseract_motion_planners/ompl/ompl_motion_planner.h>
 
 // tesseract_kinematics
@@ -53,7 +53,7 @@
 #include <tesseract_command_language/fwd.h>
 #include <tesseract_command_language/move_instruction.h>
 #include <tesseract_command_language/composite_instruction.h>
-#include <tesseract_command_language/profile_dictionary.h>
+#include <tesseract_common/profile_dictionary.h>
 
 // tesseract_motion_planners
 #include <tesseract_motion_planners/core/planner.h>
@@ -122,18 +122,18 @@
   tesseract_planning::SPARSConfigurator
 )
 
-%pythondynamic tesseract_planning::OMPLPlanProfile;
-%shared_ptr(tesseract_planning::OMPLPlanProfile)
+%pythondynamic tesseract_planning::OMPLMoveProfile;
+%shared_ptr(tesseract_planning::OMPLMoveProfile)
 %include "tesseract_motion_planners/ompl/profile/ompl_profile.h"
-// %template(OMPLPlanProfileMap) std::unordered_map<std::string, std::shared_ptr<const tesseract_planning::OMPLPlanProfile>>;
-%tesseract_command_language_add_profile_type(OMPLPlanProfile);
+// %template(OMPLMoveProfileMap) std::unordered_map<std::string, std::shared_ptr<const tesseract_planning::OMPLMoveProfile>>;
+%tesseract_command_language_add_profile_type(OMPLMoveProfile);
 
-%pythondynamic tesseract_planning::OMPLRealVectorPlanProfile;
-%shared_ptr(tesseract_planning::OMPLRealVectorPlanProfile)
-%include "tesseract_motion_planners/ompl/profile/ompl_real_vector_plan_profile.h"
+%pythondynamic tesseract_planning::OMPLRealVectorMoveProfile;
+%shared_ptr(tesseract_planning::OMPLRealVectorMoveProfile)
+%include "tesseract_motion_planners/ompl/profile/ompl_real_vector_move_profile.h"
 
-// %tesseract_std_function_base(OMPLProblemGeneratorFn,tesseract_planning,std::vector<std::shared_ptr<tesseract_planning::OMPLProblem>>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::OMPLPlanProfileMap&,c);
-// %tesseract_std_function(OMPLProblemGeneratorFn,tesseract_planning,std::vector<std::shared_ptr<tesseract_planning::OMPLProblem>>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::OMPLPlanProfileMap&,c);
+// %tesseract_std_function_base(OMPLProblemGeneratorFn,tesseract_planning,std::vector<std::shared_ptr<tesseract_planning::OMPLProblem>>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::OMPLMoveProfileMap&,c);
+// %tesseract_std_function(OMPLProblemGeneratorFn,tesseract_planning,std::vector<std::shared_ptr<tesseract_planning::OMPLProblem>>,const std::string&,a,const tesseract_planning::PlannerRequest&,b,const tesseract_planning::OMPLMoveProfileMap&,c);
 
 %pythondynamic tesseract_planning::OMPLMotionPlanner;
 %shared_ptr(tesseract_planning::OMPLMotionPlanner)

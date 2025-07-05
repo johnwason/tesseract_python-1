@@ -1,20 +1,20 @@
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
-    ManipulatorInfo, GeneralResourceLocator
+    ManipulatorInfo, GeneralResourceLocator, ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment
 from tesseract_robotics.tesseract_common import ResourceLocator, SimpleLocatedResource
 from tesseract_robotics.tesseract_command_language import CartesianWaypoint, WaypointPoly, \
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, \
-    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, ProfileDictionary, \
+    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, \
     CartesianWaypointPoly_wrap_CartesianWaypoint, MoveInstructionPoly_wrap_MoveInstruction, \
     InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly
 
 from tesseract_robotics.tesseract_motion_planners import PlannerRequest, PlannerResponse
 from tesseract_robotics.tesseract_motion_planners_simple import generateInterpolatedProgram
 from tesseract_robotics.tesseract_motion_planners_ompl import RRTConnectConfigurator, \
-    OMPLMotionPlanner, OMPLRealVectorPlanProfile
+    OMPLMotionPlanner, OMPLRealVectorMoveProfile
 from tesseract_robotics.tesseract_time_parameterization import TimeOptimalTrajectoryGeneration, \
     InstructionsTrajectory
-from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultPlanProfile, TrajOptDefaultCompositeProfile, \
+from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultMoveProfile, TrajOptDefaultCompositeProfile, \
     TrajOptMotionPlanner
 
 import os
@@ -107,10 +107,10 @@ program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(plan_f1))
 # program.appendMoveInstruction(MoveInstructionPoly(plan_f2))
 
 # Initialize the OMPL planner for RRTConnect algorithm
-plan_profile = OMPLRealVectorPlanProfile()
+plan_profile = OMPLRealVectorMoveProfile()
 
 # Create the profile dictionary. Profiles can be used to customize the behavior of the planner. The module
-# level function `ProfileDictionary_addProfile_OMPLPlanProfile` is used to add a profile to the dictionary. All
+# level function `ProfileDictionary_addProfile_OMPLMoveProfile` is used to add a profile to the dictionary. All
 # profile types have associated profile dictionary functions.
 profiles = ProfileDictionary()
 profiles.addProfile(OMPL_DEFAULT_NAMESPACE, "DEFAULT", plan_profile)
@@ -134,7 +134,7 @@ interpolated_results_instruction = generateInterpolatedProgram(results_instructi
 
 # Create the TrajOpt planner profile configurations. TrajOpt is used to optimize the random program generated
 # by OMPL
-trajopt_plan_profile = TrajOptDefaultPlanProfile()
+trajopt_plan_profile = TrajOptDefaultMoveProfile()
 trajopt_composite_profile = TrajOptDefaultCompositeProfile()
 
 trajopt_profiles = ProfileDictionary()

@@ -4,27 +4,30 @@ import os
 import numpy as np
 import numpy.testing as nptest
 
-from tesseract_robotics.tesseract_common import ResourceLocator, SimpleLocatedResource
+from tesseract_robotics.tesseract_common import ResourceLocator, SimpleLocatedResource, ProfileDictionary, \
+    AnyPoly_wrap_ProfileDictionary
 from tesseract_robotics.tesseract_environment import Environment, AnyPoly_wrap_EnvironmentConst
 from tesseract_robotics.tesseract_common import FilesystemPath, Isometry3d, Translation3d, Quaterniond, \
     ManipulatorInfo, AnyPoly, AnyPoly_wrap_double
 from tesseract_robotics.tesseract_command_language import CartesianWaypoint, WaypointPoly, \
     MoveInstructionType_FREESPACE, MoveInstruction, InstructionPoly, StateWaypoint, StateWaypointPoly, \
-    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, ProfileDictionary, \
+    CompositeInstruction, MoveInstructionPoly, CartesianWaypointPoly, \
         AnyPoly_as_CompositeInstruction, CompositeInstructionOrder_ORDERED, DEFAULT_PROFILE_KEY, \
         AnyPoly_wrap_CompositeInstruction, DEFAULT_PROFILE_KEY, JointWaypoint, JointWaypointPoly, \
         InstructionPoly_as_MoveInstructionPoly, WaypointPoly_as_StateWaypointPoly, \
         MoveInstructionPoly_wrap_MoveInstruction, StateWaypointPoly_wrap_StateWaypoint, \
         CartesianWaypointPoly_wrap_CartesianWaypoint, JointWaypointPoly_wrap_JointWaypoint, \
-        AnyPoly_wrap_ProfileDictionary
+        InstructionPoly_wrap_MoveInstruction, \
+        WaypointPoly_wrap_CartesianWaypoint, WaypointPoly_wrap_JointWaypoint, \
+        WaypointPoly_wrap_StateWaypoint
 
 # from tesseract_robotics.tesseract_motion_planners import PlannerRequest, PlannerResponse, generateInterpolatedProgram
-# from tesseract_robotics.tesseract_motion_planners_ompl import OMPLDefaultPlanProfile, RRTConnectConfigurator, \
-#     OMPLProblemGeneratorFn, OMPLMotionPlanner, ProfileDictionary_addProfile_OMPLPlanProfile
+# from tesseract_robotics.tesseract_motion_planners_ompl import OMPLDefaultMoveProfile, RRTConnectConfigurator, \
+#     OMPLProblemGeneratorFn, OMPLMotionPlanner, ProfileDictionary_addProfile_OMPLMoveProfile
 # from tesseract_robotics.tesseract_time_parameterization import TimeOptimalTrajectoryGeneration, \
 #     InstructionsTrajectory
-# from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultPlanProfile, TrajOptDefaultCompositeProfile, \
-#     TrajOptProblemGeneratorFn, TrajOptMotionPlanner, ProfileDictionary_addProfile_TrajOptPlanProfile, \
+# from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptDefaultMoveProfile, TrajOptDefaultCompositeProfile, \
+#     TrajOptProblemGeneratorFn, TrajOptMotionPlanner, ProfileDictionary_addProfile_TrajOptMoveProfile, \
 #     ProfileDictionary_addProfile_TrajOptCompositeProfile
 from tesseract_robotics.tesseract_task_composer import TaskComposerPluginFactory, \
     TaskComposerDataStorage, TaskComposerContext, TaskComposerDataStorageUPtr
@@ -58,19 +61,19 @@ def freespace_example_progam_iiwa(manipulator_info, goal = None, composite_profi
     program = CompositeInstruction(DEFAULT_PROFILE_KEY, manipulator_info, CompositeInstructionOrder_ORDERED)
     joint_names = ["joint_a1", "joint_a2", "joint_a3", "joint_a4", "joint_a5", "joint_a6", "joint_a7"]
     joint_values = np.zeros((7,))
-    wp1 = StateWaypointPoly_wrap_StateWaypoint(StateWaypoint(joint_names, joint_values))
-    start_instruction = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp1, MoveInstructionType_FREESPACE, freespace_profile))
+    wp1 = WaypointPoly_wrap_StateWaypoint(StateWaypoint(joint_names, joint_values))
+    start_instruction = InstructionPoly_wrap_MoveInstruction(MoveInstruction(wp1, MoveInstructionType_FREESPACE, freespace_profile))
     start_instruction.setDescription("Start Instruction")
 
-    wp2 = CartesianWaypointPoly_wrap_CartesianWaypoint(CartesianWaypoint(goal))
-    plan_f0 = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp2, MoveInstructionType_FREESPACE, freespace_profile))
+    wp2 = WaypointPoly_wrap_CartesianWaypoint(CartesianWaypoint(goal))
+    plan_f0 = InstructionPoly_wrap_MoveInstruction(MoveInstruction(wp2, MoveInstructionType_FREESPACE, freespace_profile))
     plan_f0.setDescription("freespace_motion")
-    program.appendMoveInstruction(start_instruction)
-    program.appendMoveInstruction(plan_f0)
+    program.append(start_instruction)
+    program.append(plan_f0)
 
-    wp3 = JointWaypointPoly_wrap_JointWaypoint(JointWaypoint(joint_names, np.zeros((7,))))
-    plan_f1 = MoveInstructionPoly_wrap_MoveInstruction(MoveInstruction(wp3, MoveInstructionType_FREESPACE))
-    program.appendMoveInstruction(plan_f1)
+    wp3 = WaypointPoly_wrap_JointWaypoint(JointWaypoint(joint_names, np.zeros((7,))))
+    plan_f1 = InstructionPoly_wrap_MoveInstruction(MoveInstruction(wp3, MoveInstructionType_FREESPACE))
+    program.append(plan_f1)
 
     return program
 

@@ -38,9 +38,6 @@
 
 %{
 
-// tesseract_common
-#include <tesseract_common/plugin_loader.h>
-
 // tesseract_kinematics
 #include <tesseract_kinematics/core/joint_group.h>
 #include <tesseract_kinematics/core/kinematic_group.h>
@@ -59,34 +56,32 @@
 #include <tesseract_command_language/fwd.h>
 #include <tesseract_command_language/move_instruction.h>
 #include <tesseract_command_language/composite_instruction.h>
-#include <tesseract_command_language/profile_dictionary.h>
+#include <tesseract_common/profile_dictionary.h>
 
 // tesseract_motion_planners_simple
 #include <tesseract_motion_planners/simple/profile/simple_planner_profile.h>
-#include <tesseract_motion_planners/simple/profile/simple_planner_lvs_plan_profile.h>
-#include <tesseract_motion_planners/simple/profile/simple_planner_lvs_no_ik_plan_profile.h>
-#include <tesseract_motion_planners/simple/profile/simple_planner_fixed_size_plan_profile.h>
-#include <tesseract_motion_planners/simple/profile/simple_planner_fixed_size_assign_plan_profile.h>
+#include <tesseract_motion_planners/simple/profile/simple_planner_lvs_move_profile.h>
+#include <tesseract_motion_planners/simple/profile/simple_planner_lvs_no_ik_move_profile.h>
+#include <tesseract_motion_planners/simple/profile/simple_planner_fixed_size_move_profile.h>
+#include <tesseract_motion_planners/simple/profile/simple_planner_fixed_size_assign_move_profile.h>
 #include <tesseract_motion_planners/simple/simple_motion_planner.h>
 
 // tesseract_motion_planners_trajopt
 #include <tesseract_motion_planners/trajopt/trajopt_motion_planner.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
 #include <tesseract_motion_planners/trajopt/trajopt_utils.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_profile.h>
 #include <tesseract_motion_planners/trajopt/profile/trajopt_default_composite_profile.h>
-#include <tesseract_motion_planners/trajopt/profile/trajopt_default_plan_profile.h>
-#include <tesseract_motion_planners/trajopt/trajopt_collision_config.h>
+#include <tesseract_motion_planners/trajopt/profile/trajopt_default_move_profile.h>
 
 // tesseract_motion_planners_ompl
 #include <tesseract_motion_planners/ompl/ompl_planner_configurator.h>
 #include <tesseract_motion_planners/ompl/profile/ompl_profile.h>
-#include <tesseract_motion_planners/ompl/profile/ompl_real_vector_plan_profile.h>
+#include <tesseract_motion_planners/ompl/profile/ompl_real_vector_move_profile.h>
 #include <tesseract_motion_planners/ompl/ompl_motion_planner.h>
 
 // tesseract_motion_planner_descartes
 #include <tesseract_motion_planners/descartes/profile/descartes_profile.h>
-#include <tesseract_motion_planners/descartes/profile/descartes_default_plan_profile.h>
+#include <tesseract_motion_planners/descartes/profile/descartes_default_move_profile.h>
 #include <tesseract_motion_planners/descartes/descartes_motion_planner.h>
 
 // tesseract_time_parameterization
@@ -94,6 +89,9 @@
 #include <tesseract_time_parameterization/totg/time_optimal_trajectory_generation.h>
 #include <tesseract_time_parameterization/ruckig/ruckig_trajectory_smoothing.h>
 #include <tesseract_time_parameterization/core/instructions_trajectory.h>
+#include <tesseract_time_parameterization/ruckig/ruckig_trajectory_smoothing_profiles.h>
+#include <tesseract_time_parameterization/totg/time_optimal_trajectory_generation_profiles.h>
+#include <tesseract_time_parameterization/isp/iterative_spline_parameterization_profiles.h>
 
 // tesseract_task_composer
 #include <tesseract_task_composer/core/task_composer_node_info.h>
@@ -124,11 +122,8 @@
 #include <tesseract_task_composer/planning/profiles/contact_check_profile.h>
 #include <tesseract_task_composer/planning/profiles/fix_state_bounds_profile.h>
 #include <tesseract_task_composer/planning/profiles/fix_state_collision_profile.h>
-#include <tesseract_task_composer/planning/profiles/iterative_spline_parameterization_profile.h>
 #include <tesseract_task_composer/planning/profiles/min_length_profile.h>
 #include <tesseract_task_composer/planning/profiles/profile_switch_profile.h>
-#include <tesseract_task_composer/planning/profiles/ruckig_trajectory_smoothing_profile.h>
-#include <tesseract_task_composer/planning/profiles/time_optimal_parameterization_profile.h>
 #include <tesseract_task_composer/planning/profiles/upsample_trajectory_profile.h>
 
 
@@ -144,6 +139,7 @@
 
 #include "tesseract_environment_python_std_functions.h"
 
+#include <boost_plugin_loader/utils.h>
 
 %}
 
@@ -261,30 +257,30 @@ enum class future_status {
 
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem, %arg(std::string name), %arg(name));
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem,%arg(
-                              tesseract_planning::ProfileDictionary::ConstPtr profiles = nullptr,
+                              tesseract_common::ProfileDictionary::ConstPtr profiles = nullptr,
                               std::string name = "unset"),
                               %arg(profiles, name));
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem, %arg(tesseract_environment::Environment::ConstPtr env,
                               tesseract_common::ManipulatorInfo manip_info,
-                              tesseract_planning::ProfileDictionary::ConstPtr profiles = nullptr,
+                              tesseract_common::ProfileDictionary::ConstPtr profiles = nullptr,
                               std::string name = "unset"),
                               %arg(env, manip_info, profiles, name));
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem, %arg(tesseract_environment::Environment::ConstPtr env,
                               tesseract_common::ManipulatorInfo manip_info,
                               tesseract_planning::ProfileRemapping move_profile_remapping,
                               tesseract_planning::ProfileRemapping composite_profile_remapping,
-                              tesseract_planning::ProfileDictionary::ConstPtr profiles = nullptr,
+                              tesseract_common::ProfileDictionary::ConstPtr profiles = nullptr,
                               std::string name = "unset"),
                               %arg(env, manip_info, move_profile_remapping, composite_profile_remapping, profiles, name));
 
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem, %arg(tesseract_environment::Environment::ConstPtr env,
                               tesseract_planning::ProfileRemapping move_profile_remapping,
                               tesseract_planning::ProfileRemapping composite_profile_remapping,
-                              tesseract_planning::ProfileDictionary::ConstPtr profiles = nullptr,
+                              tesseract_common::ProfileDictionary::ConstPtr profiles = nullptr,
                               std::string name = "unset"),
                               %arg(env, move_profile_remapping, composite_profile_remapping, profiles, name));
 %unique_ptr_constructor(tesseract_planning::PlanningTaskComposerProblem, %arg(tesseract_environment::Environment::ConstPtr env,
-                              tesseract_planning::ProfileDictionary::ConstPtr profiles = nullptr,
+                              tesseract_common::ProfileDictionary::ConstPtr profiles = nullptr,
                               std::string name = "unset"),
                               %arg(env, profiles, name));*/
 
@@ -306,12 +302,6 @@ enum class future_status {
 %include "tesseract_task_composer/planning/profiles/fix_state_collision_profile.h"
 %tesseract_command_language_add_profile_type(FixStateCollisionProfile);
 
-// iterative_spline_parameterization_profile
-%pythondynamic tesseract_planning::IterativeSplineParameterizationProfile;
-%shared_ptr(tesseract_planning::IterativeSplineParameterizationProfile)
-%include "tesseract_task_composer/planning/profiles/iterative_spline_parameterization_profile.h"
-%tesseract_command_language_add_profile_type(IterativeSplineParameterizationProfile);
-
 // min_length_profile
 %pythondynamic tesseract_planning::MinLengthProfile;
 %shared_ptr(tesseract_planning::MinLengthProfile)
@@ -324,21 +314,6 @@ enum class future_status {
 %include "tesseract_task_composer/planning/profiles/profile_switch_profile.h"
 %tesseract_command_language_add_profile_type(ProfileSwitchProfile);
 
-// ruckig_trajectory_smoothing_profile
-%pythondynamic tesseract_planning::RuckigTrajectorySmoothingCompositeProfile;
-%pythondynamic tesseract_planning::RuckigTrajectorySmoothingMoveProfile;
-%shared_ptr(tesseract_planning::RuckigTrajectorySmoothingCompositeProfile)
-%shared_ptr(tesseract_planning::RuckigTrajectorySmoothingMoveProfile)
-%include "tesseract_task_composer/planning/profiles/ruckig_trajectory_smoothing_profile.h"
-%tesseract_command_language_add_profile_type(RuckigTrajectorySmoothingCompositeProfile);
-%tesseract_command_language_add_profile_type(RuckigTrajectorySmoothingMoveProfile);
-
-//time_optimal_parameterization_profile
-%pythondynamic tesseract_planning::TimeOptimalParameterizationProfile;
-%shared_ptr(tesseract_planning::TimeOptimalParameterizationProfile)
-%include "tesseract_task_composer/planning/profiles/time_optimal_parameterization_profile.h"
-%tesseract_command_language_add_profile_type(TimeOptimalParameterizationProfile);
-
 // upsample_trajectory_profile
 %pythondynamic tesseract_planning::UpsampleTrajectoryProfile;
 %shared_ptr(tesseract_planning::UpsampleTrajectoryProfile)
@@ -347,9 +322,9 @@ enum class future_status {
 
 %init %{
 // TODO: fix anchors
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerPlanningFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskflowFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
-tesseract_common::PluginLoader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskFactoryAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerPlanningFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskflowFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract_planning::TaskComposerTaskFactoryAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
 
 %}
 

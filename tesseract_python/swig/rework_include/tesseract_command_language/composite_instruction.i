@@ -44,8 +44,8 @@ public:
   std::vector<tesseract_planning::InstructionPoly>& getInstructions();
   const std::vector<tesseract_planning::InstructionPoly>& getInstructions() const;
 
-  void appendMoveInstruction(const MoveInstructionPoly& mi);
-  void appendMoveInstruction(const MoveInstructionPoly&& mi);
+  // void appendMoveInstruction(const MoveInstructionPoly& mi);
+  // void appendMoveInstruction(const MoveInstructionPoly&& mi);
 
   void print(const std::string& prefix = "") const;
 

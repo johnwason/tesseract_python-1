@@ -53,6 +53,10 @@
 
 #include "tesseract_common_python_std_functions.h"
 
+#include <tesseract_common/profile.h>
+
+#include <tesseract_common/profile_dictionary.h>
+
 %}
 
 %include "tinyxml2.i"
@@ -209,7 +213,6 @@ namespace std
 %include "tesseract_common/allowed_collision_matrix.h"
 %include "tesseract_common/kinematic_limits.h"
 %include "tesseract_common/timer.h"
-%include "tesseract_common/filesystem.h"
 
 
 // TODO: ?
@@ -272,5 +275,13 @@ class AnyPoly {};
 
 %tesseract_any_poly_type2(double)
 %tesseract_any_poly_type(string,std)
+
+%shared_ptr(tesseract_common::Profile)
+%include "tesseract_common/profile.h"
+
+%shared_ptr(tesseract_common::ProfileDictionary)
+%include "tesseract_common/profile_dictionary.h"
+
+%tesseract_any_poly_type_shared_ptr(ProfileDictionary,tesseract_common);
 
 
