@@ -4,8 +4,8 @@
     version: 0.7.3
 - git:
     local-name: boost_plugin_loader
-    uri: https://github.com/tesseract-robotics/boost_plugin_loader.git
-    version: 0.3.0
+    uri: https://github.com/johnwason/boost_plugin_loader.git
+    version: win_any_of
 - git:
     local-name: tesseract
     uri: https://github.com/tesseract-robotics/tesseract.git
