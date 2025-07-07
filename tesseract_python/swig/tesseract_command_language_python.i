@@ -152,6 +152,14 @@ const tesseract_planning::TYPE as_const_ ## TYPE() {return $self->as<const tesse
 %pythondynamic tesseract_planning::InstructionPoly;
 %pythondynamic tesseract_planning::WaypointPoly;
 
+%wrap_unique_ptr(WaypointInterfaceUPtr, tesseract_planning::WaypointInterface);
+%wrap_unique_ptr(InstructionInterfaceUPtr, tesseract_planning::InstructionInterface);
+%wrap_unique_ptr(JointWaypointInterfaceUPtr, tesseract_planning::JointWaypointInterface);
+%wrap_unique_ptr(MoveInstructionInterfaceUPtr, tesseract_planning::MoveInstructionInterface);
+%wrap_unique_ptr(StateWaypointInterfaceUPtr, tesseract_planning::StateWaypointInterface);
+%wrap_unique_ptr(CartesianWaypointInterfaceUPtr, tesseract_planning::CartesianWaypointInterface);
+
+
 %include "tesseract_command_language/poly/waypoint_poly.h"
 %include "rework_include/tesseract_command_language/poly/cartesian_waypoint_poly.i"
 %include "rework_include/tesseract_command_language/poly/joint_waypoint_poly.i"
