@@ -60,7 +60,7 @@ def freespace_example_progam_iiwa(manipulator_info, goal = None, composite_profi
         goal = Isometry3d.Identity() * Translation3d(0.2, 0.2, 1.0)
     program = CompositeInstruction(DEFAULT_PROFILE_KEY, manipulator_info, CompositeInstructionOrder_ORDERED)
     joint_names = ["joint_a1", "joint_a2", "joint_a3", "joint_a4", "joint_a5", "joint_a6", "joint_a7"]
-    joint_values = np.zeros((7,))
+    joint_values = np.array([0,0,0,-1.57,0,0,0],dtype=np.float64)
     wp1 = WaypointPoly_wrap_StateWaypoint(StateWaypoint(joint_names, joint_values))
     start_instruction = InstructionPoly_wrap_MoveInstruction(MoveInstruction(wp1, MoveInstructionType_FREESPACE, freespace_profile))
     start_instruction.setDescription("Start Instruction")
