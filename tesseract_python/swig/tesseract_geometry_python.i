@@ -47,7 +47,7 @@
 
 %define %tesseract_vector_eigen_shared_ptr_adaptor(TYPE)
 
-%template() std::shared_ptr<const TYPE>;
+//%template() std::shared_ptr<const TYPE>;
 
 %typemap(in, noblock=0) std::shared_ptr<const TYPE > (void  *argp = 0, int res = 0, TYPE* temp1) {
 
@@ -88,7 +88,7 @@
 
 %define %tesseract_eigen_shared_ptr_adaptor(TYPE)
 
-%template() std::shared_ptr<const TYPE>;
+//%template() std::shared_ptr<const TYPE>;
 
 %typemap(in, fragment="Eigen_Fragments") std::shared_ptr<const TYPE > (TYPE temp)
 {
