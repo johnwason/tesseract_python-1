@@ -10,7 +10,7 @@ version = root.find('version').text
 
 
 setup(name='tesseract-robotics-viewer',
-      version=version,
+      version=version + "a1",
       description='Tesseract Viewer Python Library',
       author='John Wason',
       author_email='wason@wasontech.com',
