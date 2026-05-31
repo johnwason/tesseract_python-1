@@ -50,7 +50,6 @@ function(tesseract_python_module PY_MOD_NAME )
   if(APPLE)
     target_link_options(${PY_MOD_REAL_NAME} PRIVATE 
       "-Wl,-undefined,dynamic_lookup"
-      "-Wl,-flat_namespace"
     )
   endif()
 
