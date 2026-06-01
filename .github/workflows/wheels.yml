@@ -161,12 +161,12 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: 'python-wheels-${{ matrix.config.os }}-${{ matrix.config.python_version }}'
+        name: 'python-wheels-${{ matrix.config.os }}-${{ matrix.config.python_version }}-${{ matrix.config.runs_on }}'
         path: ws/build/tesseract_python/python/*
     - name: archive docs
       uses: actions/upload-artifact@v7
       with:
-        name: 'python-docs-${{ matrix.config.os }}-${{ matrix.config.python_version }}'
+        name: 'python-docs-${{ matrix.config.os }}-${{ matrix.config.python_version }}-${{ matrix.config.runs_on }}'
         path: ws/build/tesseract_python/docs/*
   build-win:
     runs-on: windows-2022
