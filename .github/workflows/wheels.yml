@@ -148,7 +148,7 @@ jobs:
     - name: build-swig
       uses: johnwason/swig-build-action@v1.3
       with:
-        cache-key: ${{ matrix.config.os }}-${{ matrix.config.python_version }}
+        cache-key: ${{ matrix.config.os }}-${{ matrix.config.python_version }}-${{ matrix.config.runs_on }}
         version: "4.4.1"
 
     - uses: actions/setup-python@v6
