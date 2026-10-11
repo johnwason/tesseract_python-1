@@ -222,7 +222,7 @@ def lvs_rebuild(locator: GeneralResourceLocator) -> dict[str, Any]:
     add_attached_sphere(env)
     manager = env.getContinuousContactManager()
     state_solver = env.getStateSolver()
-    traj = np.linspace(JOINT_START, JOINT_END, NUM_STATES)
+    traj = np.linspace(JOINT_START, JOINT_END, NUM_STATES, dtype=np.float64)
 
     config = CollisionCheckConfig()
     config.type = CollisionEvaluatorType.LVS_CONTINUOUS
