@@ -195,6 +195,252 @@ def test_state_solver_example():
 
 
 @pytest.mark.basic
+def test_contact_managers_example():
+    ex = importlib.import_module("tesseract_robotics.examples.contact_managers_example")
+
+    result = tesseract_robotics.examples.contact_managers_example()
+
+    # contact_manager_plugins.yaml
+    assert result["discrete_plugins"] == [
+        "BulletDiscreteBVHManager",
+        "BulletDiscreteSimpleManager",
+        "FCLDiscreteBVHManager",
+    ]
+    assert result["continuous_plugins"] == ["BulletCastBVHManager", "BulletCastSimpleManager"]
+    assert result["defaults"] == ("BulletDiscreteBVHManager", "BulletCastBVHManager")
+    assert result["created_by_plugin_info"] == (
+        "BulletDiscreteSimpleManager",
+        "BulletCastSimpleManager",
+    )
+
+    # box_box_example on every discrete backend: the pair set agrees, depths need not
+    assert result["hull_vertex_count"] == 8
+    for name, box_box in result["box_box"].items():
+        assert box_box["manager_name"] == name
+        assert box_box["penetrating_pairs"] == [("box_link", "second_box_link")], name
+        assert box_box["penetration_distance"] < 0.0, name
+        # x = 1.6: the gap is 0.1 m plus one ulp, so margin 0.1 reports nothing
+        assert box_box["gap_pairs_at_margin_0_1"] == [], name
+        assert ex.BOX_GAP > ex.MARGIN
+        assert box_box["gap_distance_at_margin_0_25"] > ex.MARGIN, name
+        assert abs(box_box["gap_distance_at_margin_0_25"] - ex.BOX_GAP) <= ex.BOX_BOX_TOL, name
+
+    # CollisionMarginData / CollisionMarginPairData arithmetic -> predicted contact at the gap pose
+    margins = result["margins"]
+    assert margins["unrelated_pair_1_7"] == {"max": 1.7, "max_box_link": 0.1, "contact": False}
+    assert margins["box_pair_0_25"] == {"max": 0.25, "max_box_link": 0.25, "contact": True}
+    assert margins["pair_only"] == {"max": 0.25, "max_box_link": 0.25, "contact": True}
+    for case in ["incremented", "scaled", "modify_applied"]:
+        assert margins[case]["contact"], case
+        assert abs(margins[case]["box_pair_margin"] - 0.25) <= ex.MARGIN_ARITHMETIC_TOL, case
+    assert margins["modify_applied"]["max"] == 1.7
+    assert margins["replace_applied"] == {"max": 0.25, "max_box_link": 0.25, "contact": True}
+    pair = margins["pair_data"]
+    for case in ["incremented", "scaled"]:
+        assert abs(pair[case] - 0.25) <= ex.MARGIN_ARITHMETIC_TOL, case
+    assert pair["max_box_link"] == 0.1
+    assert pair["max_unrelated_link"] is None
+    assert pair["modify_applied_pairs"] == [
+        ("also_not_box_link", "not_box_link"),
+        ("box_link", "second_box_link"),
+    ]
+    assert pair["replace_applied_pairs"] == [("also_not_box_link", "not_box_link")]
+
+    # upstream PluginFactorAPIUnit on the YAML factory
+    edits = result["plugin_edits"]
+    for kind in ["discrete", "continuous"]:
+        assert edits[kind]["default_after_set"] == f"Test{kind.capitalize()}Manager", kind
+        # a manager created by plugin name carries that name
+        assert edits[kind]["created_name"] == edits[kind]["default_after_set"], kind
+        assert edits[kind]["after_remove"] == result[f"{kind}_plugins"], kind
+        # the removed default falls back to the first remaining plugin by name
+        assert edits[kind]["default_after_remove"] == result[f"{kind}_plugins"][0], kind
+    assert result["config_round_trip_equal"]
+    assert result["cleared_search"] == {"paths": [], "libraries": []}
+
+    # upstream TestGetAllowedCollisions
+    acm = result["acm"]
+    assert acm["from_dict_equal"]
+    assert sorted(acm["allowed_deduplicated"]) == sorted(
+        ["link1", "link2", "link3", "link4", "cause_duplicate"]
+    )
+    assert len(acm["allowed_with_duplicates"]) == 6
+    assert acm["ordered_pair"] == ("link3", "link4")
+    assert acm["after_remove_link1"] == [
+        ("dummy", "dummy"),
+        ("link10", "link11"),
+        ("link3", "link4"),
+    ]
+    # one "link=<a> link=<b> reason=<r>" line per remaining entry
+    acm_lines = acm["str_after_remove"].splitlines()
+    assert len(acm_lines) == 3
+    assert "link=link10 link=link11 reason=test" in acm_lines
+    assert not any(line.startswith("link=link1 ") for line in acm_lines)
+
+    # Python ContactResultValidator and ContactResultMap
+    validator = result["validator"]
+    assert validator["direct_call"] == {"dropped_pair": False, "kept_pair": True}
+    assert validator["pairs_without"] == [
+        ("box_link", "second_box_link"),
+        ("box_link", "thin_box_link"),
+        ("second_box_link", "thin_box_link"),
+    ]
+    assert validator["pairs_with"] == [
+        ("box_link", "second_box_link"),
+        ("second_box_link", "thin_box_link"),
+    ]
+    assert validator["seen"] == validator["pairs_without"]
+    result_map = result["result_map"]
+    assert result_map["iterated_keys"] == validator["pairs_without"]
+    assert result_map["at_matches_container"]
+    assert result_map["after_filter"] == [("box_link", "thin_box_link")]
+    assert result_map["counts"] == {
+        "start": 3,
+        "add_result": 4,
+        "add_vector": 6,
+        "set_result": 1,
+        "set_vector": 2,
+    }
+
+    # upstream collision_box_box_cast_unit, through each cast overload
+    for overload, cast in result["continuous"].items():
+        assert cast["stationary_contacts"] == 0, overload
+        assert abs(cast["distance"] - (-0.2475)) <= ex.BOX_BOX_TOL, overload
+        np.testing.assert_allclose(cast["cc_time"], [-1.0, 0.25], atol=ex.BOX_BOX_TOL)
+        assert cast["cc_type"] == ["CCType_None", "CCType_Between"], overload
+        np.testing.assert_allclose(
+            cast["swept_start_point"], [-1.275, -0.625, 0.0], atol=ex.BOX_BOX_TOL
+        )
+        np.testing.assert_allclose(
+            cast["swept_end_point"], [2.525, 3.175, 0.0], atol=ex.BOX_BOX_TOL
+        )
+        assert cast["subshape_id"] == result["continuous"]["names"]["subshape_id"], overload
+    assert list(result["continuous"]) == ["name", "names", "maps"]
+
+    env = result["environment"]
+    assert env["validator_matches_scene_graph"]
+    assert env["adjacent_allowed"] and not env["distant_allowed"]
+    assert env["by_name"] == ("FCLDiscreteBVHManager", "BulletCastSimpleManager")
+    assert env["commands"] == ("BulletDiscreteSimpleManager", "BulletCastSimpleManager")
+    assert env["active_after_commands"] == env["commands"]
+    assert env["applied"] == (True, True)
+
+
+@pytest.mark.basic
+def test_trajectory_collision_example():
+    ex = importlib.import_module("tesseract_robotics.examples.trajectory_collision_example")
+
+    result = tesseract_robotics.examples.trajectory_collision_example()
+
+    # boxbot: unit boxes 0.1 m in collision (tesseract_environment_utils.cpp:112-175)
+    state = result["state"]
+    for kind in ["discrete", "continuous", "fcl"]:
+        assert state[kind]["pairs"] == [("boxbot_link", "test_box_link")], kind
+        assert state[kind]["distance"] < 0.0, kind
+        assert state[kind]["pairs_with_boxbot_disabled"] == [], kind
+    # the analytic depth on FCL; Bullet's is backend-defined on face-aligned boxes
+    assert abs(state["fcl"]["distance"] - (-ex.PENETRATION)) <= ex.BOX_BOX_TOL
+    assert state["segment_pairs"] == [("boxbot_link", "test_box_link")]
+
+    # checkTrajectory LVS_CONTINUOUS rebuilt from checkTrajectorySegment + addInterpolatedCollisionResults
+    lvs = result["lvs"]
+    assert lvs["steps_equal"] == [True, True, True, True]
+    # upstream checkTrajectoryUnit, LVS_CONTINUOUS / ALL (tesseract_environment_unit.cpp:5486-5501)
+    assert lvs["pairs_per_step"] == [2, 2, 3, 2]
+    assert lvs["rebuilt_pairs_per_step"] == lvs["pairs_per_step"]
+    assert lvs["contact_count"] == 288
+    assert lvs["rebuilt_contact_count"] == 288
+    assert lvs["contacts_per_step"][1] == 80
+    assert lvs["most_collisions_step"] == (2, 118)
+    assert lvs["rebuilt_contacts_per_step"] == lvs["contacts_per_step"]
+
+    traj = result["joint_trajectory"]
+    assert traj["equal_by_constructor"]
+    assert traj["description"] == ex.TRAJECTORY_DESCRIPTION
+    assert traj["uuid_round_trip"]
+    assert traj["len"] == 2
+    assert traj["positions"] == [[0.0, 0.0], [1.0, 1.0]]
+    assert traj["states_match_iteration"]
+    assert traj["after_setitem"] == [0.5, 0.5]
+    assert traj["getitem_is_copy"]
+    assert traj["cleared"] == (0, True)
+
+    # AddTrajectoryLinkCommand: collision count per Method (add_trajectory_link_command.h:52-73)
+    links = result["trajectory_link"]
+    assert links["active_links_with_collision"] == [f"link_{i}" for i in range(1, 8)]
+    assert links["collisions"] == {
+        "PER_STATE_OBJECTS": 14,
+        "PER_STATE_CONVEX_HULL": 2,
+        "GLOBAL_PER_LINK_CONVEX_HULL": 7,
+        "GLOBAL_CONVEX_HULL": 1,
+    }
+    assert links["collisions"] == links["expected_collisions"]
+    for method, getters in links["getters"].items():
+        assert getters == {
+            "link_name": "traj_link",
+            "parent_link_name": "base_link",
+            "trajectory_equal": True,
+            "replace_allowed": method != "PER_STATE_OBJECTS",
+            "method": method,
+            "applied": True,
+        }, method
+
+
+@pytest.mark.basic
+def test_convex_decomposition_example():
+    ex = importlib.import_module("tesseract_robotics.examples.convex_decomposition_example")
+
+    result = tesseract_robotics.examples.convex_decomposition_example()
+
+    # the CLI defaults are VHACDParameters' defaults (convex_decomposition_vhacd.h:41-59)
+    assert result["parameters"] == {
+        "max_convex_hulls": 64,
+        "resolution": 400000,
+        "minimum_volume_percent_error_allowed": 1.0,
+        "max_recursion_depth": 10,
+        "shrinkwrap": True,
+        "fill_mode": "FLOOD_FILL",
+        "max_num_vertices_per_ch": 64,
+        "async_ACD": True,
+        "min_edge_length": 2,
+        "find_best_plane": False,
+    }
+    # every option given on the command line reaches its field
+    assert result["parameters_from_argv"] == {
+        "max_convex_hulls": 8,
+        "resolution": 1000,
+        "minimum_volume_percent_error_allowed": 2.0,
+        "max_recursion_depth": 4,
+        "shrinkwrap": False,
+        "fill_mode": "RAYCAST_FILL",
+        "max_num_vertices_per_ch": 16,
+        "async_ACD": True,
+        "min_edge_length": 3,
+        "find_best_plane": True,
+    }
+    # upstream's notifier ranges reject out-of-range values
+    for argv in [["-n", "33"], ["-n", "0"], ["-e", "11"], ["-v", "3"], ["-r", "0"], ["-l", "0"]]:
+        with pytest.raises(SystemExit):
+            ex.parse_args(argv)
+
+    seat = result["seat"]
+    assert 0 < seat["num_hulls"] <= seat["max_convex_hulls"]
+    assert seat["all_convex"]
+    assert seat["files_written"] == seat["num_hulls"]
+    assert seat["reloaded_matches"]
+    assert result["default_constructor_equal"]
+
+    # each FillMode gives its own decomposition, each convex
+    modes = result["fill_modes"]
+    assert list(modes) == ["FLOOD_FILL", "SURFACE_ONLY", "RAYCAST_FILL"]
+    assert all(mode["all_convex"] for mode in modes.values())
+    assert result["fill_modes_differ"]
+
+    # reported, not asserted equal: the decomposition shipped with tesseract support
+    assert result["shipped"]["num_hulls"] == 10
+
+
+@pytest.mark.basic
 def test_geometry_showcase_example():
     tesseract_robotics.examples.geometry_showcase_example()
 

@@ -60,6 +60,8 @@ tesseract_abb_irb2400_viewer = "tesseract_robotics.examples.abb_irb2400_viewer:m
 tesseract_basic_cartesian_example = "tesseract_robotics.examples.basic_cartesian_example:main"
 tesseract_car_seat_example = "tesseract_robotics.examples.car_seat_example:main"
 tesseract_chain_example = "tesseract_robotics.examples.chain_example:main"
+tesseract_contact_managers_example = "tesseract_robotics.examples.contact_managers_example:main"
+tesseract_convex_decomposition_example = "tesseract_robotics.examples.convex_decomposition_example:main"
 tesseract_freespace_hybrid_example = "tesseract_robotics.examples.freespace_hybrid_example:main"
 tesseract_freespace_ompl_example = "tesseract_robotics.examples.freespace_ompl_example:main"
 tesseract_geometry_showcase_example = "tesseract_robotics.examples.geometry_showcase_example:main"
@@ -79,6 +81,7 @@ tesseract_state_solver_example = "tesseract_robotics.examples.state_solver_examp
 tesseract_collision_example = "tesseract_robotics.examples.tesseract_collision_example:main"
 tesseract_kinematics_example = "tesseract_robotics.examples.tesseract_kinematics_example:main"
 tesseract_material_mesh_viewer = "tesseract_robotics.examples.tesseract_material_mesh_viewer:main"
+tesseract_trajectory_collision_example = "tesseract_robotics.examples.trajectory_collision_example:main"
 tesseract_twc_workcell_positioner_viewer = "tesseract_robotics.examples.twc_workcell_positioner_viewer:main"
 
 [tool.pytest.ini_options]
