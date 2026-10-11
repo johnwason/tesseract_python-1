@@ -1,7 +1,8 @@
 # Collision Examples
 
 Collision checking below the high-level `Robot` API: contact-manager plugins,
-collision margins, contact validation and continuous checks. Each example is a
+collision margins, contact validation, continuous checks and convex
+decomposition. Each example is a
 port of an upstream tesseract example or test, or takes its parameters from
 upstream source, cited in the module docstring. Every value printed is also
 asserted in `tests/examples`.
@@ -10,6 +11,7 @@ asserted in `tests/examples`.
 # Installed console scripts
 tesseract_contact_managers_example
 tesseract_trajectory_collision_example
+tesseract_convex_decomposition_example
 
 # Or via Python module invocation
 pixi run python -m tesseract_robotics.examples.contact_managers_example
@@ -298,3 +300,84 @@ over 2 states (`environment.cpp:1412–1471`):
 | `PER_STATE_CONVEX_HULL` | 2 | one hull per state |
 | `GLOBAL_PER_LINK_CONVEX_HULL` | 7 | one hull per active link |
 | `GLOBAL_CONVEX_HULL` | 1 | one hull for everything |
+
+## Convex Decomposition
+
+A port of upstream's `create_convex_decomposition` command-line tool: split a
+mesh into convex hulls with V-HACD and write each hull to a PLY file. The input
+is the car-seat visual mesh `seat.dae` (10367 vertices, 20776 faces).
+
+### Options
+
+Upstream's options, with its short flags and value ranges, as `argparse`. The
+defaults are `VHACDParameters()`'s, and every field is set from an option:
+
+```python title="convex_decomposition_example.py"
+--8<-- "src/tesseract_robotics/examples/convex_decomposition_example.py:options"
+```
+
+The example deviates from the tool in three places: `--input` and `--output`
+default to `seat.dae` and `seat.ply`, so it runs without arguments; any format
+Assimp reads is accepted, where upstream reads only PLY (`loadSimplePlyFile`,
+not bound); and `--fill_mode` is added, because the fill mode changes the
+result. As upstream, a range is checked only for a value given on the command
+line: the default `max_convex_hulls` of 64 lies outside `-n`'s range [1, 32].
+
+```bash
+tesseract_convex_decomposition_example -n 16 --fill_mode RAYCAST_FILL -o /path/to/seat.ply
+```
+
+### Decompose and write
+
+```python title="convex_decomposition_example.py"
+--8<-- "src/tesseract_robotics/examples/convex_decomposition_example.py:decompose"
+```
+
+At the defaults this gives 64 hulls in about a second. Each is written as
+`<i>_<output>`, as the tool does:
+
+```python title="convex_decomposition_example.py"
+--8<-- "src/tesseract_robotics/examples/convex_decomposition_example.py:write"
+```
+
+Read back, each file holds its hull's vertices to the PLY's 7 written decimals.
+The round trip works because the binding repairs the hulls' face lists, which
+upstream's `createConvexHull` corrupts ([#233]; `ConvexHullFaceRepairError` in
+the [API reference](../api/tesseract_collision.md)).
+
+Each hull is checked for convexity against its own faces: every vertex lies on
+the inner side of every face plane, within the rounding of Bullet's
+`int * scaling + center` output and of the plane test (Shewchuk's `orient3d`).
+A second `createConvexHull` of its vertices passes the same test and keeps only
+the hull's own vertices, up to one step of Bullet's integer grid.
+
+!!! note "`createConvexHull` is not idempotent"
+    Bullet computes a hull on a grid of (max − min) / 10216 per axis
+    (`btConvexHullComputer.cpp:1992`). A vertex within one grid step of a face
+    is merged away, so hulling a hull's vertices again can drop one: one
+    `RAYCAST_FILL` hull of the seat loses a vertex 4 µm above a face. Compare
+    vertex sets within the grid step, not vertex counts.
+
+### Fill modes
+
+`FillMode` decides which voxels count as inside the mesh: `FLOOD_FILL` for
+closed meshes, `RAYCAST_FILL` for open ones, `SURFACE_ONLY` for hollow ones.
+Each gives its own decomposition. The default-constructed
+`ConvexDecompositionVHACD()` gives the same hulls as explicit default parameters:
+
+```python title="convex_decomposition_example.py"
+--8<-- "src/tesseract_robotics/examples/convex_decomposition_example.py:fill_modes"
+```
+
+| `FillMode` | hulls | bounding box (m) |
+|---|---|---|
+| `FLOOD_FILL` | 64 | (−0.3641, −0.2366, 0.0) to (0.2309, 0.2396, 1.0035) |
+| `SURFACE_ONLY` | 64 | (−0.3668, −0.2366, 0.002) to (0.2309, 0.2396, 1.0049) |
+| `RAYCAST_FILL` | 64 | (−0.3668, −0.2366, 0.0) to (0.2306, 0.2395, 1.0049) |
+| mesh `seat.dae` | | (−0.3669, −0.2403, 0.0) to (0.2365, 0.2403, 1.0094) |
+| shipped `seat_*.stl` | 10 | (−0.367, −0.2404, 0.0) to (0.2367, 0.2404, 1.0096) |
+
+The decomposition shipped with tesseract support, `car_seat/collision/seat_*.stl`,
+was made with other, unrecorded parameters. It is reported, not compared.
+
+[#233]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/233

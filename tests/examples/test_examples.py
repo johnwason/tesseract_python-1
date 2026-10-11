@@ -387,6 +387,60 @@ def test_trajectory_collision_example():
 
 
 @pytest.mark.basic
+def test_convex_decomposition_example():
+    ex = importlib.import_module("tesseract_robotics.examples.convex_decomposition_example")
+
+    result = tesseract_robotics.examples.convex_decomposition_example()
+
+    # the CLI defaults are VHACDParameters' defaults (convex_decomposition_vhacd.h:41-59)
+    assert result["parameters"] == {
+        "max_convex_hulls": 64,
+        "resolution": 400000,
+        "minimum_volume_percent_error_allowed": 1.0,
+        "max_recursion_depth": 10,
+        "shrinkwrap": True,
+        "fill_mode": "FLOOD_FILL",
+        "max_num_vertices_per_ch": 64,
+        "async_ACD": True,
+        "min_edge_length": 2,
+        "find_best_plane": False,
+    }
+    # every option given on the command line reaches its field
+    assert result["parameters_from_argv"] == {
+        "max_convex_hulls": 8,
+        "resolution": 1000,
+        "minimum_volume_percent_error_allowed": 2.0,
+        "max_recursion_depth": 4,
+        "shrinkwrap": False,
+        "fill_mode": "RAYCAST_FILL",
+        "max_num_vertices_per_ch": 16,
+        "async_ACD": True,
+        "min_edge_length": 3,
+        "find_best_plane": True,
+    }
+    # upstream's notifier ranges reject out-of-range values
+    for argv in [["-n", "33"], ["-n", "0"], ["-e", "11"], ["-v", "3"], ["-r", "0"], ["-l", "0"]]:
+        with pytest.raises(SystemExit):
+            ex.parse_args(argv)
+
+    seat = result["seat"]
+    assert 0 < seat["num_hulls"] <= seat["max_convex_hulls"]
+    assert seat["all_convex"]
+    assert seat["files_written"] == seat["num_hulls"]
+    assert seat["reloaded_matches"]
+    assert result["default_constructor_equal"]
+
+    # each FillMode gives its own decomposition, each convex
+    modes = result["fill_modes"]
+    assert list(modes) == ["FLOOD_FILL", "SURFACE_ONLY", "RAYCAST_FILL"]
+    assert all(mode["all_convex"] for mode in modes.values())
+    assert result["fill_modes_differ"]
+
+    # reported, not asserted equal: the decomposition shipped with tesseract support
+    assert result["shipped"]["num_hulls"] == 10
+
+
+@pytest.mark.basic
 def test_geometry_showcase_example():
     tesseract_robotics.examples.geometry_showcase_example()
 
