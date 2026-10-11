@@ -345,9 +345,14 @@ The round trip works because the binding repairs the hulls' face lists, which
 upstream's `createConvexHull` corrupts ([#233]; `ConvexHullFaceRepairError` in
 the [API reference](../api/tesseract_collision.md)).
 
-Each hull is checked for convexity against its own faces: every vertex lies on
-the inner side of every face plane, within the rounding of Bullet's
-`int * scaling + center` output and of the plane test (Shewchuk's `orient3d`).
+Each hull is checked for convexity against its own faces: every face is planar
+and every vertex lies on the inner side of every face plane, within the
+rounding of Bullet's `int * scaling + center` output and of the plane test
+(Shewchuk's `orient3d`). V-HACD can also return a flat hull, all its vertices in
+one plane, with a front and a back face. That hull is convex when each face is a
+convex polygon in its plane (`orient2d`). On macOS arm64 the seat's default
+decomposition has no flat hull; `box_2m.ply` at resolution 10000 with
+`SURFACE_ONLY` has 28 of 64.
 A second `createConvexHull` of its vertices passes the same test and keeps only
 the hull's own vertices, up to one step of Bullet's integer grid.
 

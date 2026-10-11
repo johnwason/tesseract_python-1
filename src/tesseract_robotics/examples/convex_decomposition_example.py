@@ -40,9 +40,11 @@ Key Concepts
     Each hull is upstream's `createConvexHull` of the V-HACD hull points: Bullet
     computes it exactly on an integer grid and returns `int * scaling + center`
     (`btConvexHullComputer.cpp:2097`, Bullet 3.25), an affine image of a convex
-    set, so only that last product and sum round. Every vertex must lie on the
-    inner side of every plane of the hull's own faces, within the plane shift
-    that rounding allows. A second `createConvexHull` of the vertices is convex
+    set, so only that last product and sum round. Every face must be planar and
+    every vertex must lie on the inner side of every plane of the hull's own
+    faces, within the plane shift that rounding allows. V-HACD can return a flat
+    hull, all its vertices in one plane (two faces, front and back); such a hull
+    is convex when each face is a convex polygon in that plane. A second `createConvexHull` of the vertices is convex
     by the same test, and each of its vertices is one of the hull's, moved by up
     to one step of Bullet's grid, (max - min) / 10216 per axis, truncated
     (`btConvexHullComputer.cpp:1992, 2025`). It is not idempotent: it can drop a
@@ -85,6 +87,8 @@ HULL_OUTPUT_ULPS = 1
 # o3derrboundA = (7 + 56 eps) eps, eps = 2**-53 (Shewchuk 1997, predicates.c exactinit)
 EPS = 2.0**-53
 ORIENT3D_ERRBOUND = (7.0 + 56.0 * EPS) * EPS
+# The same for orient2d: ccwerrboundA = (3 + 16 eps) eps (predicates.c exactinit)
+ORIENT2D_ERRBOUND = (3.0 + 16.0 * EPS) * EPS
 # writeSimplePlyFile writes `float` coordinates with std::fixed and
 # setprecision(digits10 + 1) = 7 decimals (ply_io.cpp:84-101): half a unit of the
 # 7th decimal, m; the reader then rounds to float32, half a float32 ulp more
@@ -272,19 +276,77 @@ def orient3d(a, b, c, d, eta: float):
     return det, shifted - perm + ORIENT3D_ERRBOUND * perm
 
 
+def face_plane(corners):
+    """Three corners spanning the face's plane: the first, and the pair widest from it.
+
+    Bullet can list a corner on a straight edge of a polygon face, so the first
+    three corners may be collinear.
+    """
+    a = corners[0]
+    pairs = [(j, k) for j in range(1, len(corners)) for k in range(j + 1, len(corners))]
+    areas = [np.linalg.norm(np.cross(corners[j] - a, corners[k] - a)) for j, k in pairs]
+    j, k = pairs[int(np.argmax(areas))]
+    return a, corners[j], corners[k]
+
+
+def orient2d(a, b, c, eta: float):
+    """Shewchuk's orient2d of points `c` against the line (a, b), and its error bound.
+
+    The bound is built as in `orient3d`, from the 2x2 permanent.
+    """
+    ac, bc = a - c, b - c
+    det = ac[:, 0] * bc[:, 1] - ac[:, 1] * bc[:, 0]
+    perm = np.abs(ac[:, 0] * bc[:, 1]) + np.abs(ac[:, 1] * bc[:, 0])
+    shifted = (np.abs(ac[:, 0]) + eta) * (np.abs(bc[:, 1]) + eta) + (np.abs(ac[:, 1]) + eta) * (
+        np.abs(bc[:, 0]) + eta
+    )
+    return det, shifted - perm + ORIENT2D_ERRBOUND * perm
+
+
+def flat_faces_convex(vertices, faces, plane, eta: float) -> bool:
+    """A zero-volume hull: every vertex on `plane`, and every face a convex polygon in it.
+
+    The polygons are tested in the plane's projection that drops the coordinate
+    along which the plane's normal is largest; dropping a coordinate is exact.
+    """
+    a, b, c = plane
+    det, bound = orient3d(a, b, c, vertices, eta)
+    if (np.abs(det) > bound).any():
+        return False
+    keep = [axis for axis in range(3) if axis != int(np.argmax(np.abs(np.cross(b - a, c - a))))]
+    flat = vertices[:, keep]
+    i = 0
+    while i < len(faces):
+        corners = flat[faces[i + 1 : i + 1 + faces[i]]]
+        i += 1 + faces[i]
+        inside = corners.mean(axis=0, keepdims=True)
+        for start, end in zip(corners, np.roll(corners, -1, axis=0)):
+            side, side_bound = orient2d(start[None], end[None], inside, eta)
+            if abs(side[0]) <= side_bound[0]:
+                return False  # the polygon is a segment
+            det, bound = orient2d(start[None], end[None], flat, eta)
+            if (np.sign(side[0]) * det < -bound).any():
+                return False
+    return True
+
+
 def faces_bound(vertices, faces) -> bool:
-    """Every vertex lies on the inner side of every face plane, within rounding."""
+    """Every face is planar and every vertex lies on its inner side, within rounding."""
     inside = vertices.mean(axis=0, keepdims=True)
     # each entry of a difference of two vertices, each off by HULL_OUTPUT_ULPS per axis
     eta = 2 * HULL_OUTPUT_ULPS * float(np.spacing(np.abs(vertices).max()))
     i = 0
     while i < len(faces):
-        a, b, c = vertices[faces[i + 1 : i + 4]]
+        corners = faces[i + 1 : i + 1 + faces[i]]
         i += 1 + faces[i]
+        a, b, c = face_plane(vertices[corners])
         side, side_bound = orient3d(a, b, c, inside, eta)
         if abs(side[0]) <= side_bound[0]:
-            return False  # the face plane passes through the centroid: a flat hull
+            # the face plane passes through the centroid: a flat hull
+            return flat_faces_convex(vertices, faces, (a, b, c), eta)
         det, bound = orient3d(a, b, c, vertices, eta)
+        if (np.abs(det[corners]) > bound[corners]).any():
+            return False
         if (np.sign(side[0]) * det < -bound).any():
             return False
     return True
