@@ -327,6 +327,66 @@ def test_contact_managers_example():
 
 
 @pytest.mark.basic
+def test_trajectory_collision_example():
+    ex = importlib.import_module("tesseract_robotics.examples.trajectory_collision_example")
+
+    result = tesseract_robotics.examples.trajectory_collision_example()
+
+    # boxbot: unit boxes 0.1 m in collision (tesseract_environment_utils.cpp:112-175)
+    state = result["state"]
+    for kind in ["discrete", "continuous", "fcl"]:
+        assert state[kind]["pairs"] == [("boxbot_link", "test_box_link")], kind
+        assert state[kind]["distance"] < 0.0, kind
+        assert state[kind]["pairs_with_boxbot_disabled"] == [], kind
+    # the analytic depth on FCL; Bullet's is backend-defined on face-aligned boxes
+    assert abs(state["fcl"]["distance"] - (-ex.PENETRATION)) <= ex.BOX_BOX_TOL
+    assert state["segment_pairs"] == [("boxbot_link", "test_box_link")]
+
+    # checkTrajectory LVS_CONTINUOUS rebuilt from checkTrajectorySegment + addInterpolatedCollisionResults
+    lvs = result["lvs"]
+    assert lvs["steps_equal"] == [True, True, True, True]
+    # upstream checkTrajectoryUnit, LVS_CONTINUOUS / ALL (tesseract_environment_unit.cpp:5486-5501)
+    assert lvs["pairs_per_step"] == [2, 2, 3, 2]
+    assert lvs["rebuilt_pairs_per_step"] == lvs["pairs_per_step"]
+    assert lvs["contact_count"] == 288
+    assert lvs["rebuilt_contact_count"] == 288
+    assert lvs["contacts_per_step"][1] == 80
+    assert lvs["most_collisions_step"] == (2, 118)
+    assert lvs["rebuilt_contacts_per_step"] == lvs["contacts_per_step"]
+
+    traj = result["joint_trajectory"]
+    assert traj["equal_by_constructor"]
+    assert traj["description"] == ex.TRAJECTORY_DESCRIPTION
+    assert traj["uuid_round_trip"]
+    assert traj["len"] == 2
+    assert traj["positions"] == [[0.0, 0.0], [1.0, 1.0]]
+    assert traj["states_match_iteration"]
+    assert traj["after_setitem"] == [0.5, 0.5]
+    assert traj["getitem_is_copy"]
+    assert traj["cleared"] == (0, True)
+
+    # AddTrajectoryLinkCommand: collision count per Method (add_trajectory_link_command.h:52-73)
+    links = result["trajectory_link"]
+    assert links["active_links_with_collision"] == [f"link_{i}" for i in range(1, 8)]
+    assert links["collisions"] == {
+        "PER_STATE_OBJECTS": 14,
+        "PER_STATE_CONVEX_HULL": 2,
+        "GLOBAL_PER_LINK_CONVEX_HULL": 7,
+        "GLOBAL_CONVEX_HULL": 1,
+    }
+    assert links["collisions"] == links["expected_collisions"]
+    for method, getters in links["getters"].items():
+        assert getters == {
+            "link_name": "traj_link",
+            "parent_link_name": "base_link",
+            "trajectory_equal": True,
+            "replace_allowed": method != "PER_STATE_OBJECTS",
+            "method": method,
+            "applied": True,
+        }, method
+
+
+@pytest.mark.basic
 def test_geometry_showcase_example():
     tesseract_robotics.examples.geometry_showcase_example()
 

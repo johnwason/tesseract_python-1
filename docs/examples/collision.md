@@ -7,8 +7,9 @@ upstream source, cited in the module docstring. Every value printed is also
 asserted in `tests/examples`.
 
 ```bash
-# Installed console script
+# Installed console scripts
 tesseract_contact_managers_example
+tesseract_trajectory_collision_example
 
 # Or via Python module invocation
 pixi run python -m tesseract_robotics.examples.contact_managers_example
@@ -201,3 +202,99 @@ and the `SetActive*ContactManagerCommand` pair switches the active ones:
 ```python title="contact_managers_example.py"
 --8<-- "src/tesseract_robotics/examples/contact_managers_example.py:environment"
 ```
+
+## Trajectory Collision
+
+Collision checks of a single state, a swept segment and a whole trajectory, and
+a trajectory turned into a collision link.
+
+### States and segments
+
+Upstream's boxbot test: two unit boxes, `test_box_link` 0.9 m along x, so they
+overlap by 0.1 m. `checkTrajectoryState` has a discrete and a continuous
+overload; both report the pair:
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:state"
+```
+
+`checkTrajectorySegment` sweeps `test_box_link` from y = 2 to y = −2 through
+`boxbot_link`:
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:segment"
+```
+
+The penetration depth depends on the backend. FCL, fetched by name from the
+boxbot's plugin configuration, reports the analytic 0.1 m:
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:state_fcl"
+```
+
+| manager | distance |
+|---|---|
+| `BulletDiscreteBVHManager` (default discrete) | −0.0577 |
+| `BulletCastBVHManager` (default continuous) | −0.0577 |
+| `FCLDiscreteBVHManager` | −0.1000 |
+
+Bullet's −0.0577 m is 0.1 / √3, along a corner direction. The boxes' y and z
+faces are coplanar, and Bullet's penetration solver does not find the x-axis
+minimum. Upstream's boxbot test asserts only that the pair is in contact.
+Disabling `boxbot_link` through `ContactManagerConfig.modify_object_enabled`
+clears every check.
+
+### `checkTrajectory`, rebuilt from its parts
+
+Upstream's `checkTrajectoryUnit` (IIWA with a 0.15 m sphere attached to
+`base_link`, five states from `joint_a1` = −0.4 to 0.4 rad) checked with
+`LVS_CONTINUOUS`. `checkTrajectory` splits each step into sub-segments of at
+most `longest_valid_segment_length` (0.005, the default) in joint space,
+checks each with `checkTrajectorySegment` and merges the results with
+`addInterpolatedCollisionResults`. The example does the same in Python:
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:lvs_rebuild"
+```
+
+Each step's rebuilt result equals `checkTrajectory`'s, and both give
+upstream's counts: link pairs per step 2, 2, 3, 2, and 45 + 80 + 118 + 45 = 288
+contacts, with the most in step 2.
+
+!!! note "`ContactResultMap.clear()` keeps its keys"
+    `clear()` empties every vector but keeps the key, and `==` compares keys.
+    `checkTrajectory` reuses one map across steps (`utils.cpp:234`), so in step
+    3 the pair `link_5` / `sphere_attached`, which touched only in step 2, is
+    still there with no contacts. A rebuild with a new map per step has the same
+    contacts but compares unequal. Reuse one map, as above.
+
+### `JointTrajectory`
+
+Upstream's trajectory-link test trajectory, `joint_a1` and `joint_a2` from 0 to
+1 rad, built with either constructor. Indexing returns a copy; assign it back
+with `traj[i] = state`:
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:joint_trajectory"
+```
+
+### Trajectory links
+
+`AddTrajectoryLinkCommand` adds a link, `traj_link` under `base_link`, that
+carries the collision geometry of every active link over the trajectory. The
+`Method` decides how that geometry is merged. The example applies each method
+in turn, replacing the link (`replace_allowed=True` after the first):
+
+```python title="trajectory_collision_example.py"
+--8<-- "src/tesseract_robotics/examples/trajectory_collision_example.py:trajectory_link"
+```
+
+`joint_a1` and `joint_a2` move `link_1` to `link_7`, one collision shape each,
+over 2 states (`environment.cpp:1412–1471`):
+
+| `Method` | collision shapes | rule |
+|---|---|---|
+| `PER_STATE_OBJECTS` | 14 | every active link's shapes, per state (7 × 2) |
+| `PER_STATE_CONVEX_HULL` | 2 | one hull per state |
+| `GLOBAL_PER_LINK_CONVEX_HULL` | 7 | one hull per active link |
+| `GLOBAL_CONVEX_HULL` | 1 | one hull for everything |
