@@ -3,6 +3,7 @@ from .abb_irb2400_viewer import main as abb_irb2400_viewer
 from .basic_cartesian_example import run as basic_cartesian_example
 from .car_seat_example import run as car_seat_example
 from .chain_example import run as chain_example
+from .contact_managers_example import run as contact_managers_example
 from .freespace_hybrid_example import run as freespace_hybrid_example
 from .freespace_ompl_example import run as freespace_ompl_example
 from .geometry_showcase_example import run as geometry_showcase_example

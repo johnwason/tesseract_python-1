@@ -60,6 +60,7 @@ tesseract_abb_irb2400_viewer = "tesseract_robotics.examples.abb_irb2400_viewer:m
 tesseract_basic_cartesian_example = "tesseract_robotics.examples.basic_cartesian_example:main"
 tesseract_car_seat_example = "tesseract_robotics.examples.car_seat_example:main"
 tesseract_chain_example = "tesseract_robotics.examples.chain_example:main"
+tesseract_contact_managers_example = "tesseract_robotics.examples.contact_managers_example:main"
 tesseract_freespace_hybrid_example = "tesseract_robotics.examples.freespace_hybrid_example:main"
 tesseract_freespace_ompl_example = "tesseract_robotics.examples.freespace_ompl_example:main"
 tesseract_geometry_showcase_example = "tesseract_robotics.examples.geometry_showcase_example:main"
