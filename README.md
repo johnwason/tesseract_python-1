@@ -28,6 +28,10 @@ Maintained in `/docs` and published to https://tesseract-robotics.github.io/tess
 
 for an excellent overview of `Tesseract's` architecture & features see [this presentation on Vimeo](https://vimeo.com/649656119)
 
+## Test suite
+
+1900+ pytest tests in `tests/`, mirroring the module layout (`tesseract_collision`, `tesseract_kinematics`, `tesseract_task_composer`, `trajopt_sqp`, …) plus the high-level `planning` API, examples and viewer. CI installs each built wheel into a clean environment and runs the full suite on Linux, macOS and Windows before anything is published to PyPI. See [Running tests](#running-tests).
+
 ## Installation
 
 ```bash
@@ -100,7 +104,7 @@ print(f"Links: {env.getLinkNames()}")
 - `basic_cartesian_example.py` - Simple Cartesian planning
 - `freespace_ompl_example.py` - OMPL freespace planning
 - `pick_and_place_example.py` - Pick and place with TrajOpt
-- `puzzle_piece_example.py` - Cartesian path following
+- `puzzle_piece_auxillary_axes_example.py` - 9-DOF Cartesian toolpath
 - And more...
 
 ## Versioning
@@ -137,12 +141,18 @@ pixi run build    # installs prebuilt C++ libs + builds/installs bindings (edita
 |------|-------------|
 | `pixi run build` | Install C++ libs (conda) + build/install bindings |
 | `pixi run install` | Editable install of the bindings |
-| `pixi run test` | Run pytest with xdist parallelism |
+| `pixi run test` | Run pytest with xdist parallelism (excludes benchmarks) |
+| `pixi run test-benchmark` | Run benchmark tests (serial) |
 | `pixi run lint` | Lint with ruff |
 | `pixi run fmt` | Format with ruff |
 | `pixi run typecheck` | Type check with pyright |
+| `pixi run stubs` | Regenerate the committed `.pyi` stubs |
+| `pixi run stubs-check` | Fail if committed stubs differ from the built modules |
+| `pixi run check-changelog` | Check CHANGELOG.md release structure |
 | `pixi run docs` | Live docs server (localhost:8000) |
 | `pixi run docs-build` | Build static docs to `site/` |
+| `pixi run docs-dotgraphs` | Regenerate pipeline DOT graph SVGs (requires graphviz) |
+| `pixi run build-wheel` | Build a portable wheel (see below) |
 
 ### Running tests
 
@@ -159,16 +169,15 @@ pre-commit install
 pre-commit install --hook-type pre-push
 ```
 
-This runs ruff + auto-staging on commit, and pyright + pytest on push (configured in `.pre-commit-config.yaml`).
+This runs ruff + auto-staging on commit, and `pixi run typecheck` on push (configured in `.pre-commit-config.yaml`).
 
 ### Project layout
 
 ```
 ├── pyproject.toml            # package config + pixi workspace
 ├── CMakeLists.txt            # nanobind build
-├── src/tesseract_robotics/   # Python package + C++ extension modules
+├── src/tesseract_robotics/   # Python package + C++ extension modules + examples/
 ├── tests/                    # pytest suite
-├── examples/                 # usage examples
 ├── scripts/                  # build scripts (build_{linux,macos}_wheel.sh)
 └── docs/                     # mkdocs-material documentation
 ```
