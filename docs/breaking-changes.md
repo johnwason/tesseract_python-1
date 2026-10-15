@@ -1,29 +1,45 @@
 # Breaking API changes
 
-Changes that break existing Python code, newest first, each with what replaces it. The next
-release removes `IfoptQPProblem` and `IfoptProblem`: build a `TrajOptQPProblem` instead, and
+Changes that break existing Python code, newest first, each with what replaces it. 0.35.0.9
+removes `IfoptQPProblem` and `IfoptProblem`: build a `TrajOptQPProblem` instead, and
 expect different results wherever a cost went in without a penalty type. Its convex evaluators
 take only the QP solution vector. The [changelog](CHANGELOG.md) lists every change; the
 [upgrade guide](changes.md) covers the tesseract upgrades in full.
 
 | Release | What breaks | Use instead |
 |---|---|---|
-| Unreleased | `MotionProgram` / `get_manipulator_info` require `tcp_frame` and `working_frame`; `fk` / `ik` require `tip_link`; `to_composite_instruction` has no `tcp_frame` | [Name the frames](#the-planning-api-no-longer-picks-a-tcp-or-working-frame) |
-| Unreleased | `tesseract_geometry.PointCloudPoint` renamed | [`PointCloud.Point`](#pointcloudpoint-renamed-to-pointcloudpoint) |
-| Unreleased | `tesseract_scene_graph.JointType_*` constants removed | [The `JointType` members](#swig-era-jointtype_-constants-removed) |
-| Unreleased | 37 collision, common and environment value types compare by value and are unhashable: `hash()`, `set` members and `dict` keys raise `TypeError` | [A stable key, or `id()`](#value-types-compare-by-value-and-are-unhashable) |
-| Unreleased | `TaskComposerPluginFactory.createTaskComposerNode` / `createTaskComposerExecutor` no longer return `None` | [`except TaskComposerPluginError`](#createtaskcomposernode-and-createtaskcomposerexecutor-raise) |
-| Unreleased | `margin_data_override_type`, `set{Default,Pair}CollisionMarginData`, `CollisionMarginOverrideType`, `get/setPairCollisionMargin` removed | [The tesseract names](#pre-033-collision-margin-aliases-removed) |
-| Unreleased | `ContactTestType_*`, `Events_*`, `ModifyAllowedCollisionsType_*` and module-level `CONSOLE_BRIDGE_LOG_*` constants removed | [The enum members](#swig-era-enum-constants-removed) |
-| Unreleased | `tesseract_environment.AnyPoly_wrap_EnvironmentConst`, `tesseract_command_language.AnyPoly_*` and `_HAS_TASK_COMPOSER` removed | [`tesseract_task_composer.AnyPoly_*`](#anypoly-helpers-only-in-tesseract_task_composer) |
-| Unreleased | `FilesystemPath`, `_FilesystemPath`, `TransformMap`, `Environment.initFromUrdf` / `initFromUrdfSrdf` removed; `Environment.init(str, …)` is content | [`pathlib.Path`](#a-str-is-content-pathlibpath-is-a-file) |
-| Unreleased | `evaluateConvexCosts`, `evaluateTotalConvexCost`, `evaluateConvexConstraintViolations` raise `ValueError` on a `var_vals` that is not `getNumQPVars()` long | [The QP solution vector](#the-convex-evaluators-take-the-qp-solution-vector) |
-| Unreleased | `trajopt_sqp.IfoptQPProblem` and `trajopt_sqp.IfoptProblem` removed | [`TrajOptQPProblem`](#ifoptqpproblem-and-ifoptproblem-removed) |
+| 0.35.0.9 | `ChangeCollisionMarginsCommand(pair_margin_data)` merges the pair margins (`MODIFY`) instead of replacing them | [Pass `REPLACE`](#changecollisionmarginscommandpair_margin_data-defaults-to-modify) |
+| 0.35.0.9 | `MotionProgram` / `get_manipulator_info` require `tcp_frame` and `working_frame`; `fk` / `ik` require `tip_link`; `to_composite_instruction` has no `tcp_frame` | [Name the frames](#the-planning-api-no-longer-picks-a-tcp-or-working-frame) |
+| 0.35.0.9 | `tesseract_geometry.PointCloudPoint` renamed | [`PointCloud.Point`](#pointcloudpoint-renamed-to-pointcloudpoint) |
+| 0.35.0.9 | `tesseract_scene_graph.JointType_*` constants removed | [The `JointType` members](#swig-era-jointtype_-constants-removed) |
+| 0.35.0.9 | 37 collision, common and environment value types compare by value and are unhashable: `hash()`, `set` members and `dict` keys raise `TypeError` | [A stable key, or `id()`](#value-types-compare-by-value-and-are-unhashable) |
+| 0.35.0.9 | `TaskComposerPluginFactory.createTaskComposerNode` / `createTaskComposerExecutor` no longer return `None` | [`except TaskComposerPluginError`](#createtaskcomposernode-and-createtaskcomposerexecutor-raise) |
+| 0.35.0.9 | `margin_data_override_type`, `set{Default,Pair}CollisionMarginData`, `CollisionMarginOverrideType`, `get/setPairCollisionMargin` removed | [The tesseract names](#pre-033-collision-margin-aliases-removed) |
+| 0.35.0.9 | `ContactTestType_*`, `Events_*`, `ModifyAllowedCollisionsType_*` and module-level `CONSOLE_BRIDGE_LOG_*` constants removed | [The enum members](#swig-era-enum-constants-removed) |
+| 0.35.0.9 | `tesseract_environment.AnyPoly_wrap_EnvironmentConst`, `tesseract_command_language.AnyPoly_*` and `_HAS_TASK_COMPOSER` removed | [`tesseract_task_composer.AnyPoly_*`](#anypoly-helpers-only-in-tesseract_task_composer) |
+| 0.35.0.9 | `FilesystemPath`, `_FilesystemPath`, `TransformMap`, `Environment.initFromUrdf` / `initFromUrdfSrdf` removed; `Environment.init(str, …)` is content | [`pathlib.Path`](#a-str-is-content-pathlibpath-is-a-file) |
+| 0.35.0.9 | `evaluateConvexCosts`, `evaluateTotalConvexCost`, `evaluateConvexConstraintViolations` raise `ValueError` on a `var_vals` that is not `getNumQPVars()` long | [The QP solution vector](#the-convex-evaluators-take-the-qp-solution-vector) |
+| 0.35.0.9 | `trajopt_sqp.IfoptQPProblem` and `trajopt_sqp.IfoptProblem` removed | [`TrajOptQPProblem`](#ifoptqpproblem-and-ifoptproblem-removed) |
 | 0.35.0.1 | `planning.Transform` removed; `Pose` is an `Isometry3d` | [`Pose`](#transform-removed-pose-is-an-isometry3d) |
 | 0.35.0.1 | tesseract 0.35: `package://tesseract_support/` resource URIs | [`package://tesseract/support/`](#resource-uris-moved) |
 | 0.34.1.0 | tesseract 0.34: `ifopt` module, `JointPosition`, `CartPosInfo`, `CollisionCache`, … | [0.33 → 0.34 guide](changes.md#breaking-changes) |
 
-## Unreleased
+## 0.35.0.9
+
+### `ChangeCollisionMarginsCommand(pair_margin_data)` defaults to `MODIFY`
+
+The binding defaulted `override_type` to `REPLACE`, so leaving it out replaced every pair margin
+in the environment, where the same C++ call merges the given pairs into the existing ones (#247).
+Both overloads that take `pair_margin_data` now default to `MODIFY`, as upstream. Code that left
+`override_type` out and relied on the replace passes it explicitly:
+
+| before | after |
+| --- | --- |
+| `ChangeCollisionMarginsCommand(pairs)` | `ChangeCollisionMarginsCommand(pairs, CollisionMarginPairOverrideType.REPLACE)` |
+
+`CollisionMarginPairOverrideType` is in `tesseract_common`. The new
+`ChangeCollisionMarginsCommand(default_margin, pairs, override_type)` overload defaults to
+`MODIFY` too.
 
 ### The planning API no longer picks a TCP or working frame
 

@@ -204,9 +204,40 @@ solver.init(problem)
 solver.stepSQPSolver()
 ```
 
-The example above rebuilds the problem each tick because the obstacle pose is baked
-into collision constraints. If your scene is static, you can reuse the same problem
-and only call `setVariables` + `stepSQPSolver`.
+A built problem does not see the environment change. Each collision evaluator keeps
+its own contact manager, and the pose of every link outside the manipulator is fixed in it
+when the evaluator is built: `env.setState(...)` afterwards moves the obstacle in the
+environment, not in the problem. Measured on the example's scene with the obstacle moved
+onto the planned path (summed constraint violation, discrete and LVS continuous alike):
+
+| Problem | Before the move | After the move |
+|---|---|---|
+| Held from before the move | 0.0 | 0.0 |
+| Rebuilt after the move | — | 1.92 |
+
+Perturbing the variables after the move leaves the held problem at 0.002, which is the
+start-position constraint alone, so this is not the evaluator's cache.
+
+That is why the example rebuilds the problem every tick, as upstream's
+`online_planning_example.cpp` (0.35.0, lines 351–357) does. Only when nothing outside the
+manipulator moves can you hold one problem and call `setVariables` + `stepSQPSolver`.
+
+## Starting values and failure
+
+The example uses upstream's values. They are a starting point for this scene, not tuned
+guidance:
+
+| Term | Kind | Value |
+|---|---|---|
+| `JointPosConstraint` on the first node | constraint | coefficient 5 per joint |
+| `CartPosConstraint` on the last node | constraint | default coefficients |
+| `JointVelConstraint`, zero target | `SQUARED` cost | coefficient 1 |
+| Collision (`TrajOptCollisionConfig(0.1, 10)`) | constraint | 0.1 m margin, coefficient 10, `collision_margin_buffer` 0.10 m |
+
+After `solve`, `solver.getStatus()` returns an `SQPStatus`: `NLP_CONVERGED` is the only
+success. `ITERATION_LIMIT`, `PENALTY_ITERATION_LIMIT`, `OPT_TIME_LIMIT`, `QP_SOLVER_ERROR`
+and `CALLBACK_STOPPED` each name why it stopped. A run can stop with constraints still
+violated, so check `problem.getExactConstraintViolations()` before using the result.
 
 ## Python Subclassing
 
