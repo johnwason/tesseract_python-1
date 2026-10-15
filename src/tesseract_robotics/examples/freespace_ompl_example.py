@@ -37,6 +37,8 @@ Related Examples:
     - lowlevel/freespace_ompl_c_api_example.py - Same with low-level API
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -60,7 +62,7 @@ if "pytest" not in sys.modules:
     from tesseract_robotics.viewer import TesseractViewer
 
 
-def run(pipeline="FreespacePipeline", num_planners=None):
+def run(pipeline="FreespacePipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Run freespace OMPL planning example.
 
     Plans a collision-free joint-space trajectory around a sphere obstacle using
@@ -73,6 +75,10 @@ def run(pipeline="FreespacePipeline", num_planners=None):
             - "TrajOptPipeline": TrajOpt only (for comparison)
         num_planners: Number of parallel OMPL planners (default: all CPUs).
             More planners = faster solutions but higher CPU usage.
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with keys:
@@ -122,7 +128,8 @@ def run(pipeline="FreespacePipeline", num_planners=None):
     # Execute planning pipeline via TaskComposer
     # TrajOptPipeline: TrajOpt -> contact check -> time parameterization
     print(f"\nRunning planner ({pipeline})...")
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     # Use appropriate profiles based on pipeline
     # C++ defaults: planning_time=60.0, planner_range=0.01, 2 planners

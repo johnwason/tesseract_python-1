@@ -206,6 +206,8 @@ plugins again, about 4.3 s on macOS arm64, so timing a solve through it measures
 Build one composer and pass it to every call; you own its lifetime (#137):
 
 ```python
+from tesseract_robotics.planning import TaskComposer, plan_cartesian
+
 composer = TaskComposer.from_config(warmup=["DescartesDPipeline"])
 for program in programs:
     result = plan_cartesian(robot, program, composer=composer)

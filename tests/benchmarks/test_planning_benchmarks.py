@@ -25,6 +25,7 @@ from tesseract_robotics.examples import (
     raster_example,
     scene_graph_example,
 )
+from tesseract_robotics.planning import TaskComposer
 
 # Examples that work reliably
 EXAMPLES = [
@@ -43,13 +44,19 @@ EXAMPLES = [
 # car_seat excluded due to complex collision environment - linear path passes through 50% collisions
 
 
+@pytest.fixture(scope="module")
+def composer():
+    """One composer for the module, so rounds time planning, not plugin loading."""
+    return TaskComposer.from_config()
+
+
 class TestExampleBenchmarks:
     """Benchmark planning examples with default settings."""
 
     @pytest.mark.parametrize("example", EXAMPLES)
-    def test_default(self, benchmark, example):
+    def test_default(self, benchmark, example, composer):
         """Time each example's run() function with default pipeline."""
-        result = benchmark(example)
+        result = benchmark(example, composer=composer)
         assert result, f"{example} failed"
         benchmark.extra_info["example"] = f"{example}"
         benchmark.extra_info["cpus"] = os.cpu_count()
@@ -64,10 +71,12 @@ class TestOMPLScaling:
 
     @pytest.mark.parametrize("example", EXAMPLES)
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
-    def test_scaling(self, benchmark, example, num_planners):
+    def test_scaling(self, benchmark, example, num_planners, composer):
         """Time examples with FreespacePipeline and varying planner counts."""
         try:
-            result = benchmark(example, pipeline="FreespacePipeline", num_planners=num_planners)
+            result = benchmark(
+                example, pipeline="FreespacePipeline", num_planners=num_planners, composer=composer
+            )
             assert result, f"{example} failed"
         except (AssertionError, RuntimeError) as e:
             pytest.skip(f"{example} requires TrajOpt: {e}")

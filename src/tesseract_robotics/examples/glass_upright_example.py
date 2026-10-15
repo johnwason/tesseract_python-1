@@ -56,6 +56,8 @@ Related Examples:
     - lowlevel/glass_upright_c_api_example.py - Same with low-level API
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -79,7 +81,7 @@ if "pytest" not in sys.modules:
     from tesseract_robotics.viewer import TesseractViewer
 
 
-def run(pipeline="TrajOptPipeline", num_planners=None):
+def run(pipeline="TrajOptPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Run glass upright example with orientation-constrained planning.
 
     Plans a trajectory where the tool orientation remains constant while the
@@ -91,6 +93,10 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
             - "TrajOptPipeline" (default): TrajOpt with UPRIGHT constraints
             - "FreespacePipeline": OMPL (ignores orientation constraints!)
         num_planners: Number of parallel OMPL planners (only for FreespacePipeline).
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with keys:
@@ -157,7 +163,8 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
 
     # Execute TrajOpt planning with orientation constraints
     print(f"\nRunning planner ({pipeline})...")
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     result = composer.plan(robot, program, pipeline=pipeline, profiles=profiles)
 
     assert result.successful, f"Planning failed: {result.message}"

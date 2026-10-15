@@ -75,6 +75,8 @@ RELATED EXAMPLES
 - glass_upright_example.py: orientation-constrained motion
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -94,7 +96,7 @@ if "pytest" not in sys.modules:
     from tesseract_robotics.viewer import TesseractViewer
 
 
-def run(pipeline="TrajOptPipeline", num_planners=None):
+def run(pipeline="TrajOptPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Execute industrial raster pattern planning.
 
     Builds and plans a raster pattern with multiple parallel strokes:
@@ -105,6 +107,10 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
     Args:
         pipeline: Planning pipeline ("TrajOptPipeline" or "FreespacePipeline")
         num_planners: Number of parallel threads (unused for TrajOpt)
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict: {result, robot, joint_names} for testing/visualization
@@ -180,7 +186,8 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
     # === PLAN WITH TRAJOPT ===
     # TrajOpt optimizes the trajectory for smooth motion and collision avoidance
     print(f"\nRunning planner ({pipeline})...")
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     profiles = create_trajopt_default_profiles()
     result = composer.plan(robot, program, pipeline=pipeline, profiles=profiles)
 

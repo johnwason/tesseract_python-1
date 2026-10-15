@@ -80,6 +80,8 @@ Related Examples
 - car_seat_example.py: Multi-step planning with profile customization
 """
 
+from __future__ import annotations
+
 import sys
 import time
 
@@ -121,7 +123,13 @@ def update_human_position(robot, human_x, human_y):
     robot.env.setState(joint_names, joint_values)
 
 
-def run(pipeline="TrajOptPipeline", num_iterations=5, num_planners=None):
+def run(
+    pipeline="TrajOptPipeline",
+    num_iterations=5,
+    num_planners=None,
+    *,
+    composer: TaskComposer | None = None,
+):
     """Run online planning example with moving human obstacle.
 
     Simulates repeated planning cycles as a human obstacle oscillates through
@@ -131,6 +139,10 @@ def run(pipeline="TrajOptPipeline", num_iterations=5, num_planners=None):
         pipeline: Planning pipeline ("TrajOptPipeline" or "TrajOptIfoptPipeline")
         num_iterations: Number of replanning cycles to run
         num_planners: Parallel planners (unused for TrajOpt, relevant for OMPL)
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with 'trajectories', 'timings', 'robot', 'joint_names', 'success'
@@ -172,7 +184,8 @@ def run(pipeline="TrajOptPipeline", num_iterations=5, num_planners=None):
 
     # TaskComposer orchestrates the planning pipeline
     # TrajOptPipeline: interpolation -> TrajOpt optimization -> time parameterization
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     trajectories = []
     timings = []

@@ -24,6 +24,8 @@ Related Examples:
 - puzzle_piece_example.py - complex Cartesian path from CSV
 """
 
+from __future__ import annotations
+
 import sys
 import time
 
@@ -46,12 +48,16 @@ if "pytest" not in sys.modules:
     from tesseract_robotics.viewer import TesseractViewer
 
 
-def run(pipeline="CartesianPipeline", num_planners=None):
+def run(pipeline="CartesianPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Run chain planning example.
 
     Args:
         pipeline: Pipeline name (default "CartesianPipeline" = Descartes+TrajOpt)
         num_planners: Number of parallel planners (unused, for API compat)
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with results including trajectory, robot, and timing
@@ -113,7 +119,8 @@ def run(pipeline="CartesianPipeline", num_planners=None):
     profiles = create_cartesian_pipeline_profiles()
 
     # TaskComposer loads pipeline from YAML config and manages execution
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     # Execute planning - CartesianPipeline runs Descartes then TrajOpt
     print(f"Planning with {pipeline}...")

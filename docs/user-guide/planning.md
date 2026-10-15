@@ -582,8 +582,16 @@ plan_profile.joint_constraint_config.coeff = [100, 1, 1, 1, 1, 1]
 
 ## Handling Planning Failures
 
+Each debug step below plans again, so hold one composer and pass it to every
+call; without `composer=`, each call reloads the task composer plugins.
+
 ```python
-result = plan_freespace(robot, program)
+from tesseract_robotics.planning import (
+    TaskComposer, plan_cartesian, plan_freespace, plan_ompl,
+)
+
+composer = TaskComposer.from_config()
+result = plan_freespace(robot, program, composer=composer)
 
 if not result.successful:
     print(f"Planning failed: {result.message}")
@@ -602,13 +610,13 @@ if not result.successful:
     print(f"Collision-free: {contacts.size() == 0}")
 
     # 2. Try a different backend
-    result = plan_ompl(robot, program)       # sampling-based (OMPL + TrajOpt)
-    result = plan_cartesian(robot, program)  # graph search (Descartes)
+    result = plan_ompl(robot, program, composer=composer)       # sampling-based (OMPL + TrajOpt)
+    result = plan_cartesian(robot, program, composer=composer)  # graph search (Descartes)
 
     # 3. Increase planning time on OMPL
     from tesseract_robotics.planning.profiles import create_ompl_default_profiles
     profiles = create_ompl_default_profiles(planning_time=30.0)
-    result = plan_ompl(robot, program, profiles=profiles)
+    result = plan_ompl(robot, program, profiles=profiles, composer=composer)
 ```
 
 ## Trajectory Output
@@ -639,40 +647,55 @@ only. `result.to_numpy()` returns an `(N, num_joints)` array of positions.
     `pipeline="OMPLPipeline"` to drop the TrajOpt step.
 
     ```python
-    from tesseract_robotics.planning import plan_ompl
+    from tesseract_robotics.planning import TaskComposer, plan_ompl
+
+    composer = TaskComposer.from_config()
 
     # Default: OMPL + TrajOpt refinement
-    result = plan_ompl(robot, program)
+    result = plan_ompl(robot, program, composer=composer)
 
     # Raw OMPL output (no refinement)
-    result = plan_ompl(robot, program, pipeline="OMPLPipeline")
+    result = plan_ompl(robot, program, pipeline="OMPLPipeline", composer=composer)
     ```
 
-!!! tip "Pre-Load Plugins"
-    First `plan_*()` call takes ~10–15 s due to plugin `dlopen`. In interactive
-    or long-running sessions, warm up once at startup:
+!!! tip "Hold and Pre-Load One Composer"
+    Every `TaskComposer.from_config()` loads the task composer plugins, about
+    4.3 s on macOS arm64, and a `plan_*()` call without `composer=` builds a
+    new one each time. Build one composer at startup, warm the pipelines you
+    will run, and pass it to every call. A warmup only pays off on the composer
+    that then plans: a 419-waypoint Descartes solve takes 0.47 s through a held,
+    warmed composer versus about 5 s through `plan_cartesian` without one (#137).
 
     ```python
-    from tesseract_robotics.planning import TaskComposer
+    from tesseract_robotics.planning import TaskComposer, plan_cartesian, plan_ompl
 
-    composer = TaskComposer.from_config(warmup=True)  # ~10–15s once
-    # Subsequent composer.plan() calls are fast
+    composer = TaskComposer.from_config(warmup=["FreespacePipeline", "DescartesDPipeline"])
+
+    result = plan_ompl(robot, program, composer=composer)       # FreespacePipeline
+    result = plan_cartesian(robot, program, composer=composer)  # DescartesDPipeline
     ```
 
-!!! tip "Profile Caching"
-    Profile factory helpers do real work — cache and reuse the returned
-    `ProfileDictionary`:
+!!! tip "Cache the Composer and the Profiles"
+    For repeated plans, hold both the composer and the `ProfileDictionary`.
+    The composer is the large saving: it skips the plugin load (about 4.3 s on
+    macOS arm64) that every `plan_*()` call without `composer=` repeats.
+    Caching profiles saves the work the profile factory helpers do to build
+    them, which is far smaller; on its own it leaves the plugin load in every
+    call.
 
     ```python
+    from tesseract_robotics.planning import TaskComposer, plan_ompl
     from tesseract_robotics.planning.profiles import (
         create_freespace_pipeline_profiles,
     )
 
     # Create once
-    self.freespace_profiles = create_freespace_pipeline_profiles()
+    composer = TaskComposer.from_config(warmup=["FreespacePipeline"])
+    freespace_profiles = create_freespace_pipeline_profiles()
 
     # Reuse for all plans
-    result = plan_ompl(robot, program, profiles=self.freespace_profiles)
+    for program in programs:
+        result = plan_ompl(robot, program, profiles=freespace_profiles, composer=composer)
     ```
 
 ## Next Steps

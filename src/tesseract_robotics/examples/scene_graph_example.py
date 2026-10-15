@@ -52,11 +52,13 @@ Upstream prints it after adding `joint_5`, where both paths weigh 3.75 m (edge
 weight = origin translation norm, graph.cpp:599) and the one returned is a tie-break.
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
 
-from tesseract_robotics.planning import Robot
+from tesseract_robotics.planning import Robot, TaskComposer
 from tesseract_robotics.tesseract_common import AllowedCollisionMatrix, Isometry3d
 from tesseract_robotics.tesseract_scene_graph import (
     Joint,
@@ -222,12 +224,13 @@ def build_scene_graph():
     }
 
 
-def run(pipeline=None, num_planners=None):
+def run(pipeline=None, num_planners=None, *, composer: TaskComposer | None = None):
     """Run scene graph manipulation example.
 
     Args:
         pipeline: Unused (for API compatibility)
         num_planners: Unused (for API compatibility)
+        composer: Unused (for API compatibility)
 
     Returns:
         dict with robot, success status

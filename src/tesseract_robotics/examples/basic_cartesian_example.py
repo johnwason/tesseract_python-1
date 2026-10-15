@@ -56,6 +56,8 @@ Related Examples:
     - lowlevel/basic_cartesian_c_api_example.py - Same with low-level API
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -166,7 +168,7 @@ def basic_cartesian_trajopt_profiles(joint_count):
     return profiles
 
 
-def run(pipeline="TrajOptPipeline", num_planners=None):
+def run(pipeline="TrajOptPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Run basic Cartesian planning example.
 
     Plans a multi-phase trajectory combining FREESPACE and LINEAR moves using
@@ -178,6 +180,10 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
             - "TrajOptPipeline" (default): TrajOpt trajectory optimization
             - "FreespacePipeline": OMPL for FREESPACE moves (ignores LINEAR)
         num_planners: Number of parallel OMPL planners (only for FreespacePipeline).
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with keys:
@@ -230,7 +236,8 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
         profiles = create_trajopt_default_profiles()
 
     # Execute planning
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     result = composer.plan(robot, program, pipeline=pipeline, profiles=profiles)
 
     assert result.successful, f"Planning failed: {result.message}"

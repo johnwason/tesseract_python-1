@@ -67,13 +67,14 @@ def setup_robot_with_obstacles(num_obstacles: int = 1):
     return robot
 
 
-def plan_freespace(
-    num_planners: int = 1,
-    optimize: bool = True,
-    planning_time: float = 5.0,
-    num_obstacles: int = 1,
-):
-    """Plan freespace motion with configurable settings."""
+@pytest.fixture(scope="module")
+def composer():
+    """One composer for the module, so the plugin load (#137) stays out of the timed call."""
+    return TaskComposer.from_config()
+
+
+def freespace_problem(num_obstacles: int = 1):
+    """Robot with obstacles and its start-to-end freespace program, built outside the timer."""
     robot = setup_robot_with_obstacles(num_obstacles)
     joint_names = robot.get_joint_names("manipulator")
 
@@ -89,8 +90,18 @@ def plan_freespace(
         .move_to(JointTarget(joint_start))
         .move_to(JointTarget(joint_end))
     )
+    return robot, program
 
-    composer = TaskComposer.from_config()
+
+def plan_freespace(
+    composer: TaskComposer,
+    robot: Robot,
+    program: MotionProgram,
+    num_planners: int = 1,
+    optimize: bool = True,
+    planning_time: float = 5.0,
+):
+    """Plan freespace motion with configurable settings."""
     profiles = create_freespace_pipeline_profiles(
         num_planners=num_planners,
         planning_time=planning_time,
@@ -111,14 +122,17 @@ class TestOptimizeModeScaling:
     """
 
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
-    def test_optimize_true(self, benchmark, num_planners):
+    def test_optimize_true(self, benchmark, composer, num_planners):
         """optimize=True: always runs full planning_time (no scaling)."""
+        robot, program = freespace_problem(1)
         benchmark(
             plan_freespace,
+            composer,
+            robot,
+            program,
             num_planners=num_planners,
             optimize=True,
             planning_time=2.0,  # shorter for faster tests
-            num_obstacles=1,
         )
         benchmark.extra_info["mode"] = "optimize=True"
         benchmark.extra_info["num_planners"] = num_planners
@@ -132,14 +146,17 @@ class TestFirstSolutionScaling:
     """
 
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
-    def test_optimize_false(self, benchmark, num_planners):
+    def test_optimize_false(self, benchmark, composer, num_planners):
         """optimize=False: exits on first solution (shows scaling)."""
+        robot, program = freespace_problem(1)
         benchmark(
             plan_freespace,
+            composer,
+            robot,
+            program,
             num_planners=num_planners,
             optimize=False,
             planning_time=30.0,  # high timeout, but exits on first solution
-            num_obstacles=1,
         )
         benchmark.extra_info["mode"] = "optimize=False"
         benchmark.extra_info["num_planners"] = num_planners
@@ -154,14 +171,17 @@ class TestHarderProblemScaling:
 
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
     @pytest.mark.parametrize("num_obstacles", [1, 3, 5])
-    def test_difficulty_scaling(self, benchmark, num_planners, num_obstacles):
+    def test_difficulty_scaling(self, benchmark, composer, num_planners, num_obstacles):
         """Test how problem difficulty affects parallel scaling."""
+        robot, program = freespace_problem(num_obstacles)
         benchmark(
             plan_freespace,
+            composer,
+            robot,
+            program,
             num_planners=num_planners,
             optimize=False,
             planning_time=30.0,
-            num_obstacles=num_obstacles,
         )
         benchmark.extra_info["mode"] = "optimize=False"
         benchmark.extra_info["num_planners"] = num_planners
@@ -177,15 +197,18 @@ class TestScalingSummary:
 
     @pytest.mark.parametrize("num_planners", [1, 4])
     @pytest.mark.parametrize("mode", ["optimize", "first_solution"])
-    def test_comparison(self, benchmark, num_planners, mode):
+    def test_comparison(self, benchmark, composer, num_planners, mode):
         """Side-by-side comparison of modes."""
         optimize = mode == "optimize"
+        robot, program = freespace_problem(3)  # medium difficulty
         benchmark(
             plan_freespace,
+            composer,
+            robot,
+            program,
             num_planners=num_planners,
             optimize=optimize,
             planning_time=2.0 if optimize else 30.0,
-            num_obstacles=3,  # medium difficulty
         )
         benchmark.extra_info["mode"] = mode
         benchmark.extra_info["num_planners"] = num_planners

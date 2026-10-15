@@ -9,8 +9,13 @@ from tesseract_robotics.planning import Robot
 
 # Load a bundled example robot (ABB IRB2400, KUKA LBR IIWA, etc.)
 robot = Robot.from_tesseract_support("abb_irb2400")
+```
 
-# Or from your own URDF/SRDF via package:// URLs
+Or load your own robot:
+
+<!-- snippet: skip -->
+```python
+# From your own URDF/SRDF via package:// URLs
 robot = Robot.from_urdf(
     urdf_url="package://my_robot/urdf/robot.urdf",
     srdf_url="package://my_robot/urdf/robot.srdf",
@@ -28,7 +33,7 @@ import numpy as np
 joints = np.zeros(6)
 # group_name is the first positional argument; tip_link defaults to the chain's tip.
 tcp_pose = robot.fk("manipulator", joints, "tool0")
-print(f"Position: {tcp_pose.position}")
+print(f"Position: {tcp_pose.translation}")
 print(f"Quaternion (scalar-last [x, y, z, w]): {tcp_pose.quaternion}")
 ```
 
@@ -37,8 +42,9 @@ print(f"Quaternion (scalar-last [x, y, z, w]): {tcp_pose.quaternion}")
 ```python
 from tesseract_robotics.planning import Pose
 
+# Tool pointing down, from upstream tesseract_planning freespace_example.cpp.
 # Scalar-last quaternion convention [qx, qy, qz, qw]
-target = Pose.from_xyz_rpy(0.6, 0.0, 0.5, 0.0, 0.0, 0.0)
+target = Pose.from_xyz_quat(0.8, -0.2, 0.8, 0.0, -1.0, 0.0, 0.0)
 ik_solution = robot.ik("manipulator", target, "tool0", seed=joints)
 
 if ik_solution is not None:
@@ -71,10 +77,15 @@ print(f"Collision-free: {contacts.size() == 0}")
 
 ## Motion Planning (freespace)
 
+Building a `TaskComposer` loads the planning plugins (about 4.3 s on macOS arm64). Build one and
+pass it to every `plan_*` call; without `composer=`, each call loads the plugins again.
+
 ```python
 from tesseract_robotics.planning import (
-    MotionProgram, JointTarget, CartesianTarget, plan_freespace,
+    MotionProgram, JointTarget, CartesianTarget, TaskComposer, plan_freespace,
 )
+
+composer = TaskComposer.from_config()
 
 program = (
     MotionProgram("manipulator", tcp_frame="tool0", working_frame="base_link")
@@ -82,10 +93,10 @@ program = (
     .move_to(CartesianTarget(target))
 )
 
-result = plan_freespace(robot, program)
-if result.successful:
-    for i, state in enumerate(result.trajectory):
-        print(f"[{i}] {state.positions}")
+result = plan_freespace(robot, program, composer=composer)
+assert result.successful, result.message
+for i, state in enumerate(result.trajectory):
+    print(f"[{i}] {state.positions}")
 ```
 
 ## Cartesian Planning (Descartes)
@@ -95,7 +106,8 @@ The same `program` works with different planning backends — here Descartes for
 ```python
 from tesseract_robotics.planning import plan_cartesian
 
-result = plan_cartesian(robot, program)
+result = plan_cartesian(robot, program, composer=composer)
+assert result.successful, result.message
 ```
 
 ## OMPL Planning (pure sampling)
@@ -105,7 +117,8 @@ Or OMPL for pure sampling-based search:
 ```python
 from tesseract_robotics.planning import plan_ompl
 
-result = plan_ompl(robot, program)
+result = plan_ompl(robot, program, composer=composer)
+assert result.successful, result.message
 ```
 
 ## Using the Task Composer (Advanced)
@@ -113,17 +126,16 @@ result = plan_ompl(robot, program)
 For multi-stage pipelines (sampling then optimization then time parameterization):
 
 ```python
-from tesseract_robotics.planning import TaskComposer
-
-composer = TaskComposer.from_config()
 composer.warmup(["TrajOptPipeline"])  # optional: pay plugin load cost up front
 result = composer.plan(robot, program, pipeline="TrajOptPipeline")
+assert result.successful, result.message
 ```
 
 See [`TaskComposer.get_available_pipelines()`](../user-guide/task-composer.md) for the full list of 36 pipelines.
 
 ## Visualization
 
+<!-- snippet: skip -->
 ```python
 from tesseract_robotics.viewer import TesseractViewer
 

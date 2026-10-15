@@ -35,6 +35,17 @@ DRIFT_ABOVE_DEFAULT_PREC = 100 * EIGEN_DEFAULT_PREC  # 1e-10 — defeats default
 LOOSE_TEST_PREC = 100 * DRIFT_ABOVE_DEFAULT_PREC  # 1e-8 — comfortably admits the drift
 
 
+@pytest.fixture(scope="module")
+def composer():
+    """One composer for the module: each `from_config()` reloads the plugins (#137).
+
+    Tests about construction, warmup, custom configs or plugin lifetime build their own.
+    """
+    from tesseract_robotics.planning import TaskComposer
+
+    return TaskComposer.from_config()
+
+
 class TestPose:
     """Test Pose class and helpers."""
 
@@ -887,7 +898,7 @@ class TestPlanningIntegration:
     def robot(self):
         return Robot.from_tesseract_support("abb_irb2400")
 
-    def test_plan_freespace(self, robot):
+    def test_plan_freespace(self, robot, composer):
         """Test freespace planning through TaskComposer."""
         from tesseract_robotics.planning import plan_freespace
 
@@ -899,13 +910,13 @@ class TestPlanningIntegration:
             .move_to(JointTarget([0.5, 0, 0, 0, 0, 0]))
         )
 
-        result = plan_freespace(robot, program)
+        result = plan_freespace(robot, program, composer=composer)
 
         assert result.successful
         assert len(result) > 0
         assert result.trajectory[0].positions is not None
 
-    def test_plan_freespace_with_pipeline(self, robot):
+    def test_plan_freespace_with_pipeline(self, robot, composer):
         """Test freespace planning with explicit pipeline."""
         from tesseract_robotics.planning import plan_freespace
 
@@ -917,7 +928,7 @@ class TestPlanningIntegration:
             .move_to(JointTarget([0.3, 0, 0, 0, 0, 0]))
         )
 
-        result = plan_freespace(robot, program, pipeline="TrajOptPipeline")
+        result = plan_freespace(robot, program, pipeline="TrajOptPipeline", composer=composer)
 
         assert result.successful
 
@@ -1015,10 +1026,8 @@ class TestTaskComposer:
     def robot(self):
         return Robot.from_tesseract_support("abb_irb2400")
 
-    def test_get_available_pipelines(self):
+    def test_get_available_pipelines(self, composer):
         """Test get_available_pipelines returns all expected pipelines from factory."""
-        from tesseract_robotics.planning import TaskComposer
-
         # Explicit list of all 36 pipelines that must be loadable
         EXPECTED_PIPELINES = [
             # Core pipelines
@@ -1062,7 +1071,6 @@ class TestTaskComposer:
             "RasterFtTask",
         ]
 
-        composer = TaskComposer.from_config()
         pipelines = composer.get_available_pipelines()
 
         assert isinstance(pipelines, list)
@@ -1083,25 +1091,21 @@ class TestTaskComposer:
         composer = TaskComposer.from_config()
         assert composer.warmup(["NoSuchPipeline", "TrajOptTask"]) == ["TrajOptTask"]
 
-    def test_plan_invalid_pipeline_names_configured_pipelines(self, robot):
+    def test_plan_invalid_pipeline_names_configured_pipelines(self, robot, composer):
         """The failure message carries the factory's error, listing the configured names (gh-203)."""
-        from tesseract_robotics.planning import TaskComposer
-
         program = (
             MotionProgram("manipulator", tcp_frame="tool0", working_frame="base_link")
             .set_joint_names(robot.get_joint_names("manipulator"))
             .move_to(JointTarget([0, 0, 0, 0, 0, 0]))
             .move_to(JointTarget([0.5, 0, 0, 0, 0, 0]))
         )
-        result = TaskComposer.from_config().plan(robot, program, pipeline="NonexistentPipeline")
+        result = composer.plan(robot, program, pipeline="NonexistentPipeline")
         assert not result.successful
         assert "NonexistentPipeline" in result.message
         assert "TrajOptPipeline" in result.message
 
-    def test_plan_invalid_pipeline(self, robot):
+    def test_plan_invalid_pipeline(self, robot, composer):
         """Test plan returns failure for invalid pipeline."""
-        from tesseract_robotics.planning import TaskComposer
-
         joint_names = robot.get_joint_names("manipulator")
         program = (
             MotionProgram("manipulator", tcp_frame="tool0", working_frame="base_link")
@@ -1110,13 +1114,12 @@ class TestTaskComposer:
             .move_to(JointTarget([0.5, 0, 0, 0, 0, 0]))
         )
 
-        composer = TaskComposer.from_config()
         result = composer.plan(robot, program, pipeline="NonexistentPipeline")
 
         assert not result.successful
         assert "not found" in result.message.lower() or "error" in result.message.lower()
 
-    def test_plan_ompl(self, robot):
+    def test_plan_ompl(self, robot, composer):
         """Test plan_ompl convenience method."""
         from tesseract_robotics.planning import plan_ompl
 
@@ -1128,18 +1131,16 @@ class TestTaskComposer:
             .move_to(JointTarget([0.3, 0, 0, 0, 0, 0]))
         )
 
-        result = plan_ompl(robot, program)
+        result = plan_ompl(robot, program, composer=composer)
 
         assert result.successful
         assert len(result) > 0
 
-    def test_ompl_pipeline_with_cartesian_targets(self, robot):
+    def test_ompl_pipeline_with_cartesian_targets(self, robot, composer):
         """Test OMPLPipeline execution with Cartesian targets.
 
         Coverage for tesseract_qt_py test_ompl_pipeline_execution.
         """
-        from tesseract_robotics.planning import TaskComposer
-
         joint_names = robot.get_joint_names("manipulator")
 
         # Set initial state for seeding
@@ -1153,7 +1154,6 @@ class TestTaskComposer:
             .move_to(CartesianTarget(Pose.from_xyz_quat([0.8, 0.2, 1.2], [0.707, 0.0, 0.707, 0.0])))
         )
 
-        composer = TaskComposer.from_config()
         result = composer.plan(robot, program, pipeline="OMPLPipeline")
 
         # Pipeline loading must work - no workarounds
@@ -1161,14 +1161,12 @@ class TestTaskComposer:
             f"OMPLPipeline plugin loading broken: {result.message}"
         )
 
-    def test_freespace_pipeline_with_cartesian_targets(self, robot):
+    def test_freespace_pipeline_with_cartesian_targets(self, robot, composer):
         """Test FreespaceMotionPipeline execution with Cartesian targets.
 
         Coverage for tesseract_qt_py test_freespace_pipeline_execution.
         Uses FreespacePipeline which combines OMPL (global) + TrajOpt (smoothing).
         """
-        from tesseract_robotics.planning import TaskComposer
-
         joint_names = robot.get_joint_names("manipulator")
 
         # Set initial state for seeding
@@ -1182,7 +1180,6 @@ class TestTaskComposer:
             .move_to(CartesianTarget(Pose.from_xyz_quat([0.8, 0.2, 1.2], [0.707, 0.0, 0.707, 0.0])))
         )
 
-        composer = TaskComposer.from_config()
         # FreespacePipeline is the actual pipeline name in the YAML config
         result = composer.plan(robot, program, pipeline="FreespacePipeline")
 
@@ -1191,7 +1188,7 @@ class TestTaskComposer:
             f"FreespacePipeline plugin loading broken: {result.message}"
         )
 
-    def test_plan_cartesian(self, robot):
+    def test_plan_cartesian(self, robot, composer):
         """Test plan_cartesian with TrajOpt (Descartes not in default config)."""
         from tesseract_robotics.planning import (
             StateTarget,
@@ -1220,7 +1217,9 @@ class TestTaskComposer:
         )
 
         profiles = create_trajopt_default_profiles()
-        result = plan_cartesian(robot, program, pipeline="TrajOptPipeline", profiles=profiles)
+        result = plan_cartesian(
+            robot, program, pipeline="TrajOptPipeline", profiles=profiles, composer=composer
+        )
 
         assert result.successful
         assert len(result) > 0
@@ -1247,35 +1246,33 @@ class TestDescartesPipeline:
             .move_to(CartesianTarget(Pose.from_xyz_quat([0.8, 0.2, 0.8], tool_down)))
         )
 
-    def test_descartes_pipeline_plan(self, robot):
+    def test_descartes_pipeline_plan(self, robot, composer):
         """DescartesFPipeline solves a Cartesian program through the high-level API."""
-        from tesseract_robotics.planning import TaskComposer, create_descartes_pipeline_profiles
+        from tesseract_robotics.planning import create_descartes_pipeline_profiles
 
         profiles = create_descartes_pipeline_profiles()
-        composer = TaskComposer.from_config()
         result = composer.plan(
             robot, self._raster_program(robot), pipeline="DescartesFPipeline", profiles=profiles
         )
         assert result.successful, f"DescartesFPipeline failed: {result.message}"
         assert len(result) > 0
 
-    def test_descartes_pipeline_axis_sampling(self, robot):
+    def test_descartes_pipeline_axis_sampling(self, robot, composer):
         """Rotation sampling about the tool axis (axis-symmetric process) plans."""
-        from tesseract_robotics.planning import TaskComposer, create_descartes_pipeline_profiles
+        from tesseract_robotics.planning import create_descartes_pipeline_profiles
 
         profiles = create_descartes_pipeline_profiles(
             sample_axis=(0, 0, 1),
             sample_resolution=np.radians(30),
         )
-        composer = TaskComposer.from_config()
         result = composer.plan(
             robot, self._raster_program(robot), pipeline="DescartesFPipeline", profiles=profiles
         )
         assert result.successful, f"axis-sampled DescartesFPipeline failed: {result.message}"
 
-    def test_descartes_custom_move_profile(self, robot):
+    def test_descartes_custom_move_profile(self, robot, composer):
         """A user-supplied DescartesMoveProfileD flows through the high-level API (gh-83)."""
-        from tesseract_robotics.planning import TaskComposer, create_descartes_pipeline_profiles
+        from tesseract_robotics.planning import create_descartes_pipeline_profiles
         from tesseract_robotics.tesseract_motion_planners_descartes import (
             DescartesDefaultMoveProfileD,
         )
@@ -1284,13 +1281,12 @@ class TestDescartesPipeline:
         custom.use_redundant_joint_solutions = True
 
         profiles = create_descartes_pipeline_profiles(move_profile=custom)
-        composer = TaskComposer.from_config()
         result = composer.plan(
             robot, self._raster_program(robot), pipeline="DescartesFPipeline", profiles=profiles
         )
         assert result.successful, f"custom-profile DescartesFPipeline failed: {result.message}"
 
-    def test_plan_cartesian_defaults_solve(self, robot):
+    def test_plan_cartesian_defaults_solve(self, robot, composer):
         """plan_cartesian with every default — DescartesDPipeline, one thread per CPU — solves.
 
         This is the function's own docstring example. With the old default pipeline name it could
@@ -1298,16 +1294,18 @@ class TestDescartesPipeline:
         """
         from tesseract_robotics.planning import plan_cartesian
 
-        result = plan_cartesian(robot, self._raster_program(robot))
+        result = plan_cartesian(robot, self._raster_program(robot), composer=composer)
         assert result.successful, f"plan_cartesian defaults failed: {result.message}"
         assert len(result) > 0
 
-    def test_plan_cartesian_multithreaded_solve(self, robot):
+    def test_plan_cartesian_multithreaded_solve(self, robot, composer):
         """Four ladder-graph threads, pinned, so the threaded path is covered on any runner."""
         from tesseract_robotics.planning import create_descartes_default_profiles, plan_cartesian
 
         profiles = create_descartes_default_profiles(num_threads=4)
-        result = plan_cartesian(robot, self._raster_program(robot), profiles=profiles)
+        result = plan_cartesian(
+            robot, self._raster_program(robot), profiles=profiles, composer=composer
+        )
         assert result.successful, f"4-thread Descartes failed: {result.message}"
         assert len(result) > 0
 
@@ -1328,11 +1326,9 @@ WRAPPERS = ("plan_freespace", "plan_ompl", "plan_cartesian")
 
 
 @pytest.fixture(scope="module")
-def registered():
+def registered(composer):
     """The pipeline names the generated task composer config defines."""
-    from tesseract_robotics.planning import TaskComposer
-
-    return set(TaskComposer.from_config().get_available_pipelines())
+    return set(composer.get_available_pipelines())
 
 
 class TestConvenienceWrapperPipelines:
@@ -1356,18 +1352,15 @@ class TestConvenienceWrapperPipelines:
         return seen
 
     @pytest.mark.parametrize("wrapper", WRAPPERS)
-    def test_function_default_is_registered(self, wrapper, registered, monkeypatch):
+    def test_function_default_is_registered(self, wrapper, registered, composer, monkeypatch):
         import tesseract_robotics.planning as planning
 
         seen = self._capture_pipeline(monkeypatch)
-        getattr(planning, wrapper)(None, None)
+        getattr(planning, wrapper)(None, None, composer=composer)
         assert seen["pipeline"] in registered
 
     @pytest.mark.parametrize("wrapper", WRAPPERS)
-    def test_method_default_is_registered(self, wrapper, registered, monkeypatch):
-        from tesseract_robotics.planning import TaskComposer
-
-        composer = TaskComposer.from_config()
+    def test_method_default_is_registered(self, wrapper, registered, composer, monkeypatch):
         seen = self._capture_pipeline(monkeypatch)
         getattr(composer, wrapper)(None, None)
         assert seen["pipeline"] in registered
@@ -1390,15 +1383,39 @@ class TestConvenienceWrapperComposer:
 
         monkeypatch.setattr(TaskComposer, "from_config", no_load)
 
+        composer = self._recorder()
+        profiles = object()
+        result = getattr(planning, wrapper)(
+            None, None, pipeline="P", profiles=profiles, composer=composer
+        )
+        assert result == "result"
+        assert composer.pipeline == "P"
+        assert composer.profiles is profiles
+
+    @pytest.mark.parametrize(
+        ("wrapper", "default"),
+        [
+            ("plan_freespace", "TrajOptPipeline"),
+            ("plan_ompl", "FreespacePipeline"),
+            ("plan_cartesian", "DescartesDPipeline"),
+        ],
+    )
+    def test_given_composer_keeps_the_default_pipeline(self, wrapper, default):
+        import tesseract_robotics.planning as planning
+
+        composer = self._recorder()
+        getattr(planning, wrapper)(None, None, composer=composer)
+        assert composer.pipeline == default
+
+    @staticmethod
+    def _recorder():
         class Recorder:
             def plan(self, robot, program, pipeline, profiles):
                 self.pipeline = pipeline
+                self.profiles = profiles
                 return "result"
 
-        composer = Recorder()
-        result = getattr(planning, wrapper)(None, None, pipeline="P", composer=composer)
-        assert result == "result"
-        assert composer.pipeline == "P"
+        return Recorder()
 
 
 class TestFailureMessage:
@@ -1465,10 +1482,8 @@ class TestFailureMessage:
 
         assert _failure_message([]) == "Planning failed"
 
-    def test_a_real_failure_names_the_planner(self):
+    def test_a_real_failure_names_the_planner(self, composer):
         """An out-of-reach Cartesian target: TrajOpt fails in about a second."""
-        from tesseract_robotics.planning import TaskComposer
-
         robot = Robot.from_tesseract_support("abb_irb2400")
         joint_names = robot.get_joint_names("manipulator")
         start = np.zeros(6)
@@ -1479,7 +1494,7 @@ class TestFailureMessage:
             .move_to(StateTarget(start, names=joint_names))
             .move_to(CartesianTarget(Pose.from_xyz_quat([3.0, 0.0, 1.0], [0, 1.0, 0, 0])))
         )
-        result = TaskComposer.from_config().plan(robot, program, pipeline="TrajOptPipeline")
+        result = composer.plan(robot, program, pipeline="TrajOptPipeline")
         assert not result.successful
         assert result.message.startswith("TrajOptMotionPlannerTask: "), result.message
         assert "Abort Triggered" not in result.message

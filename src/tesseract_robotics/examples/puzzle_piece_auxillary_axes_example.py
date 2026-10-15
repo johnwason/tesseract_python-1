@@ -93,6 +93,8 @@ For interactive use, call composer.warmup() or use warmup=True:
     composer = TaskComposer.from_config(warmup=True)  # loads plugins upfront
 """
 
+from __future__ import annotations
+
 import csv
 import sys
 
@@ -224,12 +226,16 @@ def create_profiles():
     return profiles
 
 
-def run(pipeline="TrajOptPipeline", num_planners=None):
+def run(pipeline="TrajOptPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Run 9-DOF Cartesian path planning with auxiliary axes.
 
     Args:
         pipeline: Pipeline name (default "TrajOptPipeline")
         num_planners: Number of parallel planners (unused, for API compat)
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with result, robot, joint_names, planning_time, success
@@ -282,7 +288,8 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
     # === PLAN WITH TRAJOPT ===
     # Custom profiles enable yaw freedom for auxiliary axis optimization
     print(f"Planning with {pipeline} (9 DOF: 7 arm + 2 aux)...")
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     # Warmup: pre-load plugins (dlopen overhead)
     warmup_start = time.time()

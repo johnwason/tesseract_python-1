@@ -61,10 +61,10 @@ robot = Robot.from_tesseract_support("abb_irb2400")
 # Forward kinematics (note: group_name is first positional arg)
 joints = np.zeros(6)
 tcp_pose = robot.fk("manipulator", joints, "tool0")
-print(f"TCP position: {tcp_pose.position}")
+print(f"TCP position: {tcp_pose.translation}")
 
-# Inverse kinematics
-target = Pose.from_xyz_rpy(0.6, 0.0, 0.5, 0.0, 0.0, 0.0)
+# Inverse kinematics: tool pointing down (upstream freespace_example.cpp), quaternion [qx, qy, qz, qw]
+target = Pose.from_xyz_quat(0.8, -0.2, 0.8, 0.0, -1.0, 0.0, 0.0)
 ik_solution = robot.ik("manipulator", target, "tool0", seed=joints)
 
 # Plan a freespace motion
@@ -74,8 +74,8 @@ program = (
     .move_to(CartesianTarget(target))
 )
 result = plan_freespace(robot, program)
-if result.successful:
-    print(f"Found trajectory with {len(result.trajectory)} waypoints")
+assert result.successful, result.message
+print(f"Found trajectory with {len(result.trajectory)} waypoints")
 ```
 
 ## Planners

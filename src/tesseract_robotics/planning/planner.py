@@ -79,6 +79,12 @@ def plan_freespace(
         if result:
             for point in result:
                 print(point.positions)
+
+        Planning repeatedly, hold one composer so the plugins load once:
+
+            composer = TaskComposer.from_config()
+            for program in programs:
+                result = plan_freespace(robot, program, composer=composer)
     """
     if composer is None:
         composer = TaskComposer.from_config()
@@ -136,6 +142,12 @@ def plan_ompl(
         if result:
             for point in result:
                 print(point.positions)
+
+        Planning repeatedly, hold one composer so the plugins load once:
+
+            composer = TaskComposer.from_config()
+            for program in programs:
+                result = plan_ompl(robot, program, composer=composer)
     """
     if composer is None:
         composer = TaskComposer.from_config()
@@ -189,6 +201,12 @@ def plan_cartesian(
         )
 
         result = plan_cartesian(robot, program)
+
+        Planning repeatedly, hold one composer so the plugins load once:
+
+            composer = TaskComposer.from_config()
+            for program in programs:
+                result = plan_cartesian(robot, program, composer=composer)
     """
     if composer is None:
         composer = TaskComposer.from_config()

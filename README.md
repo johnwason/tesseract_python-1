@@ -52,39 +52,38 @@ pip install tesseract-robotics-nanobind
 
 ```python
 from tesseract_robotics.planning import (
-    Robot, MotionProgram, JointTarget, CartesianTarget,
-    Pose, box, create_obstacle, TaskComposer,
+    Robot, MotionProgram, JointTarget, CartesianTarget, Pose, TaskComposer,
 )
 
-# Load robot
-robot = Robot.from_urdf(
-    "package://tesseract_support/urdf/abb_irb2400.urdf",
-    "package://tesseract_support/urdf/abb_irb2400.srdf"
-)
+# Load a bundled robot (urdf + srdf from tesseract's support package)
+robot = Robot.from_tesseract_support("abb_irb2400")
 
-# Add obstacle
-create_obstacle(robot, "box", box(0.5, 0.5, 0.5), Pose.from_xyz(0.5, 0, 0.3))
+# Start at all-zero joints, goal is a tool0 pose (upstream freespace_example.cpp);
+# quaternion is scalar-last [qx, qy, qz, qw]
+start = [0.0] * 6
+goal = Pose.from_xyz_quat(0.8, -0.2, 0.8, 0.0, -1.0, 0.0, 0.0)
 
 # Build motion program
 program = (MotionProgram("manipulator", tcp_frame="tool0", working_frame="base_link")
     .set_joint_names(robot.get_joint_names("manipulator"))
-    .move_to(JointTarget([0, 0, 0, 0, 0, 0]))
-    .move_to(CartesianTarget(Pose.from_xyz(0.5, 0.3, 0.8)))
+    .move_to(JointTarget(start))
+    .move_to(CartesianTarget(goal))
 )
 
 # Plan
 composer = TaskComposer.from_config()
 result = composer.plan(robot, program)
 
-if result.successful:
-    for pt in result.trajectory:
-        print(pt.positions)
+assert result.successful, result.message
+for pt in result.trajectory:
+    print(pt.positions)
 ```
 
 ## Low-Level API
 
 For direct C++ API access:
 
+<!-- snippet: skip -->
 ```python
 from tesseract_robotics.tesseract_environment import Environment
 from tesseract_robotics.tesseract_common import GeneralResourceLocator

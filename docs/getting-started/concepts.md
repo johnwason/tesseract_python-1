@@ -45,16 +45,21 @@ Defined in the SRDF file:
 Used in Python:
 
 ```python
+import numpy as np
+from tesseract_robotics.tesseract_kinematics import KinGroupIKInput
+
 # Get the kinematic group
 manip = env.getKinematicGroup("manipulator")
+joint_names = manip.getJointNames()
 
 # Forward kinematics
 joint_values = np.array([0.0, 0.5, -0.5, 0.0, 0.5, 0.0])
 transforms = manip.calcFwdKin(joint_values)
 tcp_pose = transforms["tool0"]
 
-# Inverse kinematics (if IK solver configured)
-solutions = manip.calcInvKin(target_pose, seed_values)
+# Inverse kinematics (if IK solver configured): pose of tip_link in working_frame
+target_pose = tcp_pose
+solutions = manip.calcInvKin(KinGroupIKInput(target_pose, "base_link", "tool0"), np.zeros(6))
 
 # Joint limits
 limits = manip.getLimits()
@@ -79,18 +84,19 @@ The **Command Language** describes motion tasks:
 
 ```python
 from tesseract_robotics.tesseract_command_language import (
-    StateWaypointPoly, CartesianWaypointPoly,
-    MoveInstruction, MoveInstructionType,
+    StateWaypoint, StateWaypointPoly_wrap_StateWaypoint,
+    CartesianWaypoint, CartesianWaypointPoly_wrap_CartesianWaypoint,
+    MoveInstruction, MoveInstructionType, MoveInstructionPoly_wrap_MoveInstruction,
     CompositeInstruction
 )
 
 # Create a joint-space waypoint
-joint_wp = StateWaypointPoly.wrap_StateWaypoint(
+joint_wp = StateWaypointPoly_wrap_StateWaypoint(
     StateWaypoint(joint_names, joint_values)
 )
 
 # Create a Cartesian waypoint
-cart_wp = CartesianWaypointPoly.wrap_CartesianWaypoint(
+cart_wp = CartesianWaypointPoly_wrap_CartesianWaypoint(
     CartesianWaypoint(target_pose)
 )
 
@@ -98,10 +104,10 @@ cart_wp = CartesianWaypointPoly.wrap_CartesianWaypoint(
 move1 = MoveInstruction(joint_wp, MoveInstructionType.FREESPACE, "DEFAULT")
 move2 = MoveInstruction(cart_wp, MoveInstructionType.LINEAR, "DEFAULT")
 
-# Combine into a program
+# Combine into a program (instructions are wrapped in the polymorphic type, see below)
 program = CompositeInstruction("DEFAULT")
-program.appendMoveInstruction(move1)
-program.appendMoveInstruction(move2)
+program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(move1))
+program.appendMoveInstruction(MoveInstructionPoly_wrap_MoveInstruction(move2))
 ```
 
 ## Planners
@@ -148,17 +154,20 @@ The **Task Composer** orchestrates complex planning tasks:
 **Profiles** configure planner behavior without code changes:
 
 ```python
+from tesseract_robotics.tesseract_command_language import ProfileDictionary
+from tesseract_robotics.tesseract_motion_planners_ompl import OMPLRealVectorPlanProfile
+
 # Profiles are named configurations
 # "DEFAULT" is used if no specific profile is set
 
 # Example: Configure OMPL profile
-ompl_profile = OMPLDefaultPlanProfile()
-ompl_profile.planning_time = 5.0  # 5 seconds max
-ompl_profile.simplify = True
+ompl_profile = OMPLRealVectorPlanProfile()
+ompl_profile.solver_config.planning_time = 5.0  # 5 seconds max
+ompl_profile.solver_config.simplify = True
 
-# Add to profile dictionary
+# Add to profile dictionary under the planner task's namespace
 profiles = ProfileDictionary()
-profiles.addProfile("ompl", "my_profile", ompl_profile)
+profiles.addProfile("OMPLMotionPlannerTask", "my_profile", ompl_profile)
 ```
 
 ## Collision Modes
@@ -174,7 +183,7 @@ from tesseract_robotics.tesseract_collision import (
     ContactTestType,
 )
 
-robot.set_joints(joint_values_dict)
+robot.set_joints(dict(zip(joint_names, joint_values)))
 manager = robot.env.getDiscreteContactManager()
 manager.setActiveCollisionObjects(robot.env.getActiveLinkNames())
 manager.setCollisionObjectsTransform(robot.env.getState().link_transforms)
@@ -198,6 +207,9 @@ Checks collision along a trajectory segment (swept volume):
 Interpolates between waypoints and checks at discrete points:
 
 ```python
+from tesseract_robotics.tesseract_collision import CollisionEvaluatorType
+from tesseract_robotics.tesseract_motion_planners_trajopt import TrajOptCollisionConfig
+
 # Configured via the collision check config
 collision_config = TrajOptCollisionConfig(margin=0.1, coeff=10.0)
 collision_config.collision_check_config.type = CollisionEvaluatorType.LVS_DISCRETE
@@ -245,12 +257,12 @@ import numpy as np
 
 # Identity transform
 pose = Isometry3d.Identity()
-pose.translate([0.5, 0.2, 0.3])
+pose.translate(np.array([0.5, 0.2, 0.3]))
 
 # Get components
-position = pose.translation()  # np.array([x, y, z])
-rotation = pose.rotation()     # 3x3 rotation matrix
-matrix = pose.matrix()         # 4x4 homogeneous matrix
+position = pose.translation    # np.array([x, y, z])
+rotation = pose.rotation       # 3x3 rotation matrix
+matrix = pose.matrix           # 4x4 homogeneous matrix
 
 # From 4x4 matrix
 mat = np.eye(4)
@@ -270,7 +282,7 @@ set to point to bundled data (if not already set):
 - `TESSERACT_SUPPORT_DIR` - Path to bundled tesseract_support directory
 - `TESSERACT_TASK_COMPOSER_CONFIG_FILE` - Path to bundled task composer config
 
-This means `package://tesseract_support/urdf/...` URLs work out of the box.
+This means `package://tesseract/support/urdf/...` URLs work out of the box.
 
 ### Type Erasure Pattern
 
@@ -279,8 +291,8 @@ are needed to create and cast instructions and waypoints:
 
 ```python
 from tesseract_robotics.tesseract_command_language import (
+    CartesianWaypoint,
     CartesianWaypointPoly_wrap_CartesianWaypoint,
-    MoveInstructionPoly_wrap_MoveInstruction,
     InstructionPoly_as_MoveInstructionPoly,
     WaypointPoly_as_StateWaypointPoly,
 )
@@ -288,18 +300,17 @@ from tesseract_robotics.tesseract_command_language import (
 # Wrap a waypoint in the polymorphic type
 cart_wp = CartesianWaypointPoly_wrap_CartesianWaypoint(CartesianWaypoint(pose))
 
-# Cast back to concrete type
-move_instr = InstructionPoly_as_MoveInstructionPoly(instruction)
+# Cast back to concrete types: first instruction of the program built above
+move_instr = InstructionPoly_as_MoveInstructionPoly(program[0])
+state_wp = WaypointPoly_as_StateWaypointPoly(move_instr.getWaypoint())
 ```
 
 `ProfileDictionary` has similar accessor functions per type:
 
 ```python
-from tesseract_robotics.tesseract_motion_planners_ompl import (
-    ProfileDictionary_addProfile_OMPLPlanProfile
-)
+from tesseract_robotics.tesseract_motion_planners_ompl import ProfileDictionary_addOMPLProfile
 
-ProfileDictionary_addProfile_OMPLPlanProfile(profiles, "DEFAULT", ompl_profile)
+ProfileDictionary_addOMPLProfile(profiles, "OMPLMotionPlannerTask", "DEFAULT", ompl_profile)
 ```
 
 ### Console Bridge Logging

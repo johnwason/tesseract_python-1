@@ -26,6 +26,8 @@ Related Examples:
 - basic_cartesian_example.py - pure TrajOpt planning
 """
 
+from __future__ import annotations
+
 import sys
 import time
 
@@ -49,13 +51,23 @@ if "pytest" not in sys.modules:
     from tesseract_robotics.viewer import TesseractViewer
 
 
-def run(pipeline="FreespacePipeline", use_ifopt=False, num_planners=None):
+def run(
+    pipeline="FreespacePipeline",
+    use_ifopt=False,
+    num_planners=None,
+    *,
+    composer: TaskComposer | None = None,
+):
     """Run freespace hybrid planning example.
 
     Args:
         pipeline: "FreespacePipeline" (OMPL only) or custom
         use_ifopt: If True, use "FreespaceIfoptPipeline" (OMPL + TrajOptIfopt smoothing)
         num_planners: Number of parallel planners (unused, for API compat)
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with results including trajectory, robot, and timing
@@ -103,7 +115,8 @@ def run(pipeline="FreespacePipeline", use_ifopt=False, num_planners=None):
     profiles = create_ompl_default_profiles()
 
     # TaskComposer manages pipeline execution
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     # Select pipeline: OMPL-only or OMPL+TrajOptIfopt
     # TrajOptIfopt adds smoothing with coeff=1 for velocity cost

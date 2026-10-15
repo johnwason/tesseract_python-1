@@ -47,6 +47,7 @@ from tesseract_robotics.planning import (
     MotionProgram,
     Pose,
     Robot,
+    TaskComposer,
     create_obstacle,
     plan_freespace,
 )
@@ -252,13 +253,17 @@ def run(cloud_path: Path | None = None, resolution: float = 0.04) -> dict:
         .move_to(JointTarget(GOAL_JOINTS))
     )
     # --8<-- [start:colliding]
+    # One composer for both plans: each new composer loads the task composer
+    # plugins again (seconds).
+    composer = TaskComposer.from_config()
+
     # "Colliding" plan: TrajOpt with both collision cost and collision constraint
     # disabled. With nothing pushing the trajectory away from obstacles, the
     # optimiser converges to a smooth joint-space line — straight through
     # the cloud.
     print("Running plan_freespace (collision disabled)...")
     colliding_result = plan_freespace(
-        robot, program, profiles=_trajopt_profiles_without_collision()
+        robot, program, profiles=_trajopt_profiles_without_collision(), composer=composer
     )
     colliding_contacts = _count_traj_contacts(robot, manager, joint_names, colliding_result)
     if colliding_result.successful:
@@ -275,7 +280,9 @@ def run(cloud_path: Path | None = None, resolution: float = 0.04) -> dict:
     # (soft, coeff=50) plus collision-constraint (hard, coeff=10) bend the
     # path up and over the cloud.
     print("Running plan_freespace (collision enabled)...")
-    result = plan_freespace(robot, program, profiles=create_trajopt_default_profiles())
+    result = plan_freespace(
+        robot, program, profiles=create_trajopt_default_profiles(), composer=composer
+    )
     aware_contacts = _count_traj_contacts(robot, manager, joint_names, result)
     if result.successful:
         print(f"Collision-aware trajectory: {aware_contacts}/{len(result)} waypoints collide")

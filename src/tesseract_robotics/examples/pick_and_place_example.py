@@ -67,6 +67,8 @@ Related Examples:
     - lowlevel/pick_and_place_c_api_example.py - Same with low-level API
 """
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -137,7 +139,7 @@ def create_profiles():
     return profiles
 
 
-def run(pipeline="TrajOptPipeline", num_planners=None):
+def run(pipeline="TrajOptPipeline", num_planners=None, *, composer: TaskComposer | None = None):
     """Execute complete pick-and-place workflow.
 
     Performs two-phase motion planning:
@@ -152,6 +154,10 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
             - "TrajOptPipeline" (default): TrajOpt trajectory optimization
             - "FreespacePipeline": OMPL (ignores LINEAR motion requirements)
         num_planners: Number of parallel OMPL planners (only for FreespacePipeline).
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         dict with keys:
@@ -190,7 +196,8 @@ def run(pipeline="TrajOptPipeline", num_planners=None):
     )
     print(f"Added box at {box_pos}")
 
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
 
     # Select profiles based on pipeline type
     if "Freespace" in pipeline or "OMPL" in pipeline:
