@@ -43,6 +43,8 @@ def plan_freespace(
     program: MotionProgram | CompositeInstruction,
     pipeline: str | None = None,
     profiles: ProfileDictionary | None = None,
+    *,
+    composer: TaskComposer | None = None,
 ) -> PlanningResult:
     """
     Plan freespace motion.
@@ -54,6 +56,10 @@ def plan_freespace(
         program: Motion program or CompositeInstruction
         pipeline: Pipeline name (default: "TrajOptPipeline")
         profiles: Custom motion profiles
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         PlanningResult with trajectory if successful
@@ -74,7 +80,8 @@ def plan_freespace(
             for point in result:
                 print(point.positions)
     """
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     return composer.plan(
         robot,
         program,
@@ -88,6 +95,8 @@ def plan_ompl(
     program: MotionProgram | CompositeInstruction,
     pipeline: str | None = None,
     profiles: ProfileDictionary | None = None,
+    *,
+    composer: TaskComposer | None = None,
 ) -> PlanningResult:
     """
     Plan freespace motion using OMPL sampling-based planners.
@@ -104,6 +113,10 @@ def plan_ompl(
         program: Motion program or CompositeInstruction
         pipeline: Pipeline name (default: "FreespacePipeline")
         profiles: Custom motion profiles
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         PlanningResult with trajectory if successful
@@ -124,7 +137,8 @@ def plan_ompl(
             for point in result:
                 print(point.positions)
     """
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     return composer.plan(
         robot,
         program,
@@ -138,6 +152,8 @@ def plan_cartesian(
     program: MotionProgram | CompositeInstruction,
     pipeline: str | None = None,
     profiles: ProfileDictionary | None = None,
+    *,
+    composer: TaskComposer | None = None,
 ) -> PlanningResult:
     """
     Plan Cartesian motion.
@@ -151,6 +167,10 @@ def plan_cartesian(
             Descartes pipeline; "DescartesFPipeline" is the float one, and their
             "NPC" variants skip the post-plan contact check)
         profiles: Custom motion profiles
+        composer: Composer to plan with. Without one, each call builds a new
+            composer and loads the task composer plugins again (seconds per
+            call); build one with `TaskComposer.from_config()` and pass it to
+            every call to load them once.
 
     Returns:
         PlanningResult with trajectory if successful
@@ -170,7 +190,8 @@ def plan_cartesian(
 
         result = plan_cartesian(robot, program)
     """
-    composer = TaskComposer.from_config()
+    if composer is None:
+        composer = TaskComposer.from_config()
     return composer.plan(
         robot,
         program,

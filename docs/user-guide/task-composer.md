@@ -201,6 +201,16 @@ from tesseract_robotics.planning import plan_freespace, plan_ompl, plan_cartesia
 result = plan_freespace(robot, program)
 ```
 
+Without a `composer`, each module-level call builds a new composer and loads the task composer
+plugins again, about 4.3 s on macOS arm64, so timing a solve through it measures the load.
+Build one composer and pass it to every call; you own its lifetime (#137):
+
+```python
+composer = TaskComposer.from_config(warmup=["DescartesDPipeline"])
+for program in programs:
+    result = plan_cartesian(robot, program, composer=composer)
+```
+
 ## Visualizing Pipelines
 
 Every `TaskComposerNode` exports its task graph as [Graphviz DOT](https://graphviz.org/) — the same `dump()` mechanism the C++ task composer uses:

@@ -1373,6 +1373,34 @@ class TestConvenienceWrapperPipelines:
         assert seen["pipeline"] in registered
 
 
+class TestConvenienceWrapperComposer:
+    """A wrapper given a composer plans through it and loads no plugins (#137).
+
+    Each wrapper built a composer per call, so every call paid the plugin load (~4.3 s on
+    macOS arm64) and timing a solve through a wrapper measured the load, not the planner.
+    """
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS)
+    def test_given_composer_is_used(self, wrapper, monkeypatch):
+        import tesseract_robotics.planning as planning
+        from tesseract_robotics.planning import TaskComposer
+
+        def no_load(*args, **kwargs):
+            raise AssertionError("wrapper built its own composer")
+
+        monkeypatch.setattr(TaskComposer, "from_config", no_load)
+
+        class Recorder:
+            def plan(self, robot, program, pipeline, profiles):
+                self.pipeline = pipeline
+                return "result"
+
+        composer = Recorder()
+        result = getattr(planning, wrapper)(None, None, pipeline="P", composer=composer)
+        assert result == "result"
+        assert composer.pipeline == "P"
+
+
 class TestFailureMessage:
     """A failed plan names the node that failed, not the ErrorTask every failure is routed into.
 
