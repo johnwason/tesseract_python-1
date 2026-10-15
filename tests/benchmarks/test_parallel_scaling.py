@@ -1,25 +1,23 @@
 """
-Parallel scaling benchmarks - demonstrates actual CPU scaling behavior.
+Parallel scaling benchmarks: OMPL planner count vs solve time on one sphere obstacle.
 
-This benchmark shows WHY the original benchmarks didn't scale:
-- optimize=True: OMPL runs for full planning_time regardless of planners
-- optimize=False: OMPL exits on first solution, parallel planners help
+Measured 2026-10-15 on an Apple M1 Max, one held composer (no plugin load in the
+timer, #137), FreespacePipeline, 5 rounds, mean:
 
-RESULTS SUMMARY (from actual runs):
-┌────────────────────────────────────────────────────────────────────────┐
-│ optimize=False (first-solution mode) - SHOWS SCALING:                  │
-│   1 planner: 6.05s (baseline)                                          │
-│   4 planners: 3.83s (1.58x faster)                                     │
-│                                                                        │
-│ optimize=True (optimization mode) - NO SCALING / GETS WORSE:           │
-│   1 planner: 3.92s (baseline)                                          │
-│   8 planners: 7.26s (1.85x SLOWER due to thread overhead)              │
-└────────────────────────────────────────────────────────────────────────┘
+| planners | optimize=False (planning_time 30 s) | optimize=True (planning_time 2 s) |
+|---|---|---|
+| 1 | 85 ms | 128 ms |
+| 2 | 85 ms | 106 ms |
+| 4 | 102 ms | 106 ms |
+| 8 | 133 ms | 150 ms |
 
-WHY:
-1. optimize=True loops until planning_time expires, ignoring first solution
-2. More parallel planners = more thread overhead for no benefit
-3. TrajOpt runs after OMPL (single-threaded) and caps speedup at ~2s
+More planners do not make this problem faster: it is solved within ~100 ms by
+one planner, so extra threads only add overhead (8 planners: 1.6x slower in
+first-solution mode). Neither mode runs to its planning_time here; why
+optimize=True returns well before 2 s is not established.
+
+The table this replaces (1 planner 6.05 s vs 4 planners 3.83 s, "1.58x faster")
+timed a fresh TaskComposer per call, i.e. ~4.3 s of plugin load per round.
 
 Run with: pytest tests/benchmarks/test_parallel_scaling.py -v --benchmark-enable
 Or use:   ./scripts/run_scaling_benchmarks.sh
@@ -115,15 +113,11 @@ def plan_freespace(
 
 
 class TestOptimizeModeScaling:
-    """Benchmark showing NO scaling with optimize=True (the original behavior).
-
-    With optimize=True, OMPL runs for the full planning_time regardless of
-    how many parallel planners are running. More planners = same time.
-    """
+    """Planner count vs solve time with optimize=True (planning_time 2 s)."""
 
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
     def test_optimize_true(self, benchmark, composer, num_planners):
-        """optimize=True: always runs full planning_time (no scaling)."""
+        """optimize=True with `num_planners` parallel planners."""
         robot, program = freespace_problem(1)
         benchmark(
             plan_freespace,
@@ -139,15 +133,11 @@ class TestOptimizeModeScaling:
 
 
 class TestFirstSolutionScaling:
-    """Benchmark showing scaling with optimize=False.
-
-    With optimize=False, OMPL exits as soon as ANY planner finds a solution.
-    More parallel planners = higher probability of finding solution faster.
-    """
+    """Planner count vs solve time with optimize=False (first solution wins)."""
 
     @pytest.mark.parametrize("num_planners", [1, 2, 4, 8])
     def test_optimize_false(self, benchmark, composer, num_planners):
-        """optimize=False: exits on first solution (shows scaling)."""
+        """optimize=False with `num_planners` parallel planners."""
         robot, program = freespace_problem(1)
         benchmark(
             plan_freespace,

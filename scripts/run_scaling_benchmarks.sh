@@ -82,10 +82,8 @@ for mode in ["optimize=True", "optimize=False"]:
     print()
 
 print("╠══════════════════════════════════════════════════════════════════════════════╣")
-print("║ CONCLUSION:                                                                  ║")
-print("║   • optimize=True: OMPL runs for full planning_time regardless of planners  ║")
-print("║   • optimize=False: OMPL exits on first solution - parallel planners help   ║")
-print("║   • TrajOpt runs after OMPL and is single-threaded (caps max speedup)       ║")
+print("║ Speedups above are measured; the last recorded run is in the docstring of   ║")
+print("║ tests/benchmarks/test_parallel_scaling.py.                                  ║")
 print("╚══════════════════════════════════════════════════════════════════════════════╝")
 PYTHON
 
