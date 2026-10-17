@@ -10,6 +10,7 @@
 #include "tesseract_nb.h"
 
 #include <mutex>
+#include <type_traits>
 #include <unordered_set>
 
 // trajopt_ifopt core (replaces ifopt base classes)
@@ -136,7 +137,22 @@ struct NodeOwnershipError : std::invalid_argument {
     using std::invalid_argument::invalid_argument;
 };
 
-bool holds(const ti::NodesVariables& set, const ti::Node* node);
+// Whether set holds node; compares node against the set's own (live) Nodes, never dereferences it
+bool holds(const ti::NodesVariables& set, const ti::Node* node) {
+    for (const auto& member : set.getNodes())
+        if (member.get() == node)
+            return true;
+    return false;
+}
+
+// Whether set holds var: its Node among the set's own, and var among that Node's. Never
+// dereferences var.getParent(), which dangles once the Var's set (and Node) is freed.
+bool set_holds_var(const ti::NodesVariables& set, const ti::Var& var) {
+    for (const auto& node : set.getNodes())
+        if (node.get() == var.getParent())
+            return node->hasVar(var.getIdentifier()) && node->getVar(var.getIdentifier()).get() == &var;
+    return false;
+}
 
 // Node.getParent on a Node whose variable set Python does not hold: one a planner built in C++
 // (handed to a Python profile's create), freed when its solve returns.
@@ -166,42 +182,47 @@ public:
     NodesVariablesBinding(NodesVariablesBinding&&) = delete;
     NodesVariablesBinding& operator=(NodesVariablesBinding&&) = delete;
 
-    // node's set, kept alive by the result; raises unless it is a live Python-built set holding node
-    static std::shared_ptr<ti::NodesVariables> parent_of(const ti::Node& node) {
-        const ti::NodesVariables* parent = node.getParent();
+    // The live Python-built set for which holds_member(set) is true, kept alive by the result; null if
+    // none. A registered set is alive while the lock is held (its destructor waits for the lock), so
+    // holds_member may read it; only the match is locked, and released after the lock.
+    template <class HoldsMember>
+    static std::shared_ptr<ti::NodesVariables> find_live(const HoldsMember& holds_member) {
         std::shared_ptr<const NodesVariablesBinding> set;
-        {
-            const std::lock_guard<std::mutex> lock(mutex());
-            if (live().count(parent) != 0)  // registered: alive, so the cast and the lock are valid
-                set = static_cast<const NodesVariablesBinding*>(parent)->weak_from_this().lock();
+        const std::lock_guard<std::mutex> lock(mutex());
+        for (const ti::NodesVariables* candidate : live()) {
+            if (holds_member(*candidate)) {
+                set = static_cast<const NodesVariablesBinding*>(candidate)->weak_from_this().lock();
+                break;
+            }
         }
-        if (!set || !holds(*set, &node))
-            throw NodeParentUnavailableError(
-                "Node.getParent: the variable set of Node '" + node.getName() +
-                "' is owned by C++ (a planner's, handed to a profile's create) and is not reachable "
-                "from Python; it may be gone already");
         // Python's NodesVariables is mutable, as for a set Python built itself
         return std::const_pointer_cast<NodesVariablesBinding>(set);
     }
 
+    // node's set, kept alive by the result; raises unless it is a live Python-built set holding node
+    static std::shared_ptr<ti::NodesVariables> parent_of(const ti::Node& node) {
+        std::shared_ptr<ti::NodesVariables> set = find_live([&node](const ti::NodesVariables& candidate) {
+            return &candidate == node.getParent() && holds(candidate, &node);
+        });
+        if (!set)
+            throw NodeParentUnavailableError(
+                "Node.getParent: the variable set of Node '" + node.getName() +
+                "' is owned by C++ (a planner's, handed to a profile's create) and is not reachable "
+                "from Python; it may be gone already");
+        return set;
+    }
+
 private:
+    // Never freed: a set a C++ owner still holds may be destroyed during static destruction
     static std::mutex& mutex() {
-        static std::mutex m;
-        return m;
+        static auto* m = new std::mutex;
+        return *m;
     }
     static std::unordered_set<const ti::NodesVariables*>& live() {
-        static std::unordered_set<const ti::NodesVariables*> sets;
-        return sets;
+        static auto* sets = new std::unordered_set<const ti::NodesVariables*>;
+        return *sets;
     }
 };
-
-// Whether set holds node; compares node against the set's own (live) Nodes, never dereferences it
-bool holds(const ti::NodesVariables& set, const ti::Node* node) {
-    for (const auto& member : set.getNodes())
-        if (member.get() == node)
-            return true;
-    return false;
-}
 
 // calcForwardNumJac sizes the Jacobian by len(f(x)) and subtracts every later f(x + h e_i) from
 // f(x) unchecked: an output of another length reads or writes out of range.
@@ -209,12 +230,17 @@ struct NumericalJacobianSizeError : std::invalid_argument {
     using std::invalid_argument::invalid_argument;
 };
 
-bool set_holds_var(const ti::NodesVariables& set, const ti::Var& var) {
-    for (const auto& node : set.getNodes())
-        if (node.get() == var.getParent())
-            return node->hasVar(var.getIdentifier()) && node->getVar(var.getIdentifier()).get() == &var;
-    return false;
-}
+// The collision constraints' update() keys their contact cache on position_var->getParent()
+// ->getParent()->getHash() unchecked (discrete_collision_constraint.cpp:70, :179,
+// continuous_collision_constraint.cpp:82, :278, and init() from update(), the numerical ones :67,
+// :92, trajopt 0.35.0): no other member reads the Var's parent chain.
+template <class Constraint>
+constexpr bool reads_var_parent_chain = std::is_same_v<Constraint, ti::DiscreteCollisionConstraint> ||
+                                        std::is_same_v<Constraint, ti::DiscreteCollisionConstraintD> ||
+                                        std::is_same_v<Constraint, ti::DiscreteCollisionNumericalConstraint> ||
+                                        std::is_same_v<Constraint, ti::ContinuousCollisionConstraint> ||
+                                        std::is_same_v<Constraint, ti::ContinuousCollisionConstraintD> ||
+                                        std::is_same_v<Constraint, ti::ContinuousCollisionNumericalConstraint>;
 
 // A built-in constraint, plus the Vars it was built on, checked when it is linked to a variable
 // set: from linkWithVariables, and from TrajOptQPProblem.addConstraintSet / addCostSet, which link
@@ -229,6 +255,28 @@ public:
         : Constraint(std::forward<Args>(args)...), vars_(std::move(vars)) {}
 
     const std::vector<std::shared_ptr<const ti::Var>>& vars() const { return vars_; }
+
+    // A linked constraint's Vars are in its set, which it keeps alive (the link check). Unlinked, a
+    // collision constraint's Var may outlive its set (a planner's, kept from a profile's create):
+    // update() needs that set alive, found through the registry and held for the call.
+    int update() override {
+        if constexpr (reads_var_parent_chain<Constraint>) {
+            if (!this->variables_) {
+                std::vector<std::shared_ptr<ti::NodesVariables>> held;
+                for (const auto& var : vars_) {
+                    held.push_back(NodesVariablesBinding::find_live(
+                        [&var](const ti::NodesVariables& candidate) { return set_holds_var(candidate, *var); }));
+                    if (!held.back())
+                        throw NodeParentUnavailableError(
+                            "update: constraint set '" + this->getName() + "' is not linked, and the "
+                            "variable set of its Var '" + var->getIdentifier() + "' is owned by C++ (a "
+                            "planner's) or gone; build it on a Var of a set built from Python");
+                }
+                return Constraint::update();
+            }
+        }
+        return Constraint::update();
+    }
 
 private:
     void initVariableDependedQuantities(const ti::Variables::Ptr& variables) override {
@@ -597,10 +645,15 @@ NB_MODULE(_trajopt_ifopt, m) {
         .def("getName", &ti::Node::getName,
              "Get the name of this node")
         .def("getParent",
-             [](const ti::Node& self) -> std::shared_ptr<ti::NodesVariables> {
+             [](const ti::Node& self) -> nb::object {
                  if (self.getParent() == nullptr)
-                     return nullptr;
-                 return NodesVariablesBinding::parent_of(self);
+                     return nb::none();
+                 std::shared_ptr<ti::NodesVariables> set = NodesVariablesBinding::parent_of(self);
+                 // the set's own Python object, if it has one: a Python subclass keeps its type
+                 nb::object found = nb::find(set.get());
+                 if (found.is_valid() && nb::inst_ready(found))
+                     return found;
+                 return nb::cast(std::move(set));
              },
              nb::sig("def getParent(self) -> NodesVariables | None"),
              "The NodesVariables holding this node (kept alive by the result), or None before it is "
@@ -635,20 +688,35 @@ NB_MODULE(_trajopt_ifopt, m) {
     // Var read from the Node before the handover keeps its parent chain. The set is a
     // NodesVariablesBinding (registered for Node.getParent); Python sees NodesVariables.
     nb::class_<ti::NodesVariables, ti::Variables>(m, "NodesVariables")
-        .def(nb::new_([](std::string variable_name, nb::typed<nb::sequence, ti::Node> node_objects)
-                          -> std::shared_ptr<ti::NodesVariables> {
+        // __new__ by hand, not nb::new_: for a Python subclass, nb::new_ wraps the base-type object in
+        // a second, subclass-typed one, so the set would have two Python objects and Node.getParent
+        // could find the base one. Here the set gets exactly one, of the requested type.
+        .def_static("__new__",
+             [](nb::handle cls, std::string variable_name, nb::typed<nb::sequence, ti::Node> node_objects) {
+                 if (nb::isinstance<nb::str>(node_objects))
+                     throw nb::type_error("NodesVariables: nodes must be a sequence of Node, not str");
                  std::vector<nb::handle> nodes;
                  for (nb::handle node : node_objects)
                      nodes.push_back(node);
-                 auto set = std::make_shared<NodesVariablesBinding>(std::move(variable_name),
-                                                                    take_over_nodes(nodes));
-                 for (const nb::handle node : nodes)
-                     nb::detail::keep_alive(node.ptr(), new std::shared_ptr<ti::NodesVariables>(set),
+                 std::shared_ptr<ti::NodesVariables> set = std::make_shared<NodesVariablesBinding>(
+                     std::move(variable_name), take_over_nodes(nodes));
+                 const auto hold_set = [&set](nb::handle holder) {
+                     nb::detail::keep_alive(holder.ptr(), new std::shared_ptr<ti::NodesVariables>(set),
                                             [](void* p) noexcept {
                                                 delete static_cast<std::shared_ptr<ti::NodesVariables>*>(p);
                                             });
-                 return set;
-             }),
+                 };
+                 for (const nb::handle node : nodes)
+                     hold_set(node);
+                 if (cls.is(nb::type<ti::NodesVariables>()))
+                     return nb::cast(set);
+                 // a Python subclass: one object of that type, referring to the set and holding it
+                 nb::object self = nb::inst_reference(cls, set.get());
+                 hold_set(self);
+                 return self;
+             },
+             "cls"_a, "variable_name"_a, "nodes"_a)
+        .def("__init__", [](nb::handle, const std::string&, const nb::typed<nb::sequence, ti::Node>&) {},
              "variable_name"_a, "nodes"_a,
              "Create the variable set from its nodes, in order; takes ownership of the nodes, which "
              "become unusable through the caller's references (read them back with getNode / "

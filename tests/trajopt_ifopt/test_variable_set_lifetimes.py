@@ -126,6 +126,30 @@ for i in range(200):  # new sets reuse the freed memory
     break
 print(outcome)
 """,
+    "unlinked_collision_update_on_a_python_set": """
+from tests.trajopt_ifopt.scenes import OVERLAP_X, two_boxes_at
+boxes = two_boxes_at(OVERLAP_X)
+constraint = ti.DiscreteCollisionConstraint(boxes.discrete_evaluator(), boxes.var)
+print(constraint.update(), len(constraint.getValues()))
+""",
+    "unlinked_collision_update_keeps_its_set": """
+from tests.trajopt_ifopt.scenes import OVERLAP_X, two_boxes_at
+boxes = two_boxes_at(OVERLAP_X)
+constraint = ti.DiscreteCollisionConstraint(boxes.discrete_evaluator(), boxes.var)
+boxes.nodes = None
+boxes.var = None  # the constraint holds the Var's Python object, which holds the set
+junk = churn()
+print(constraint.update(), len(constraint.getValues()))
+""",
+    "parent_of_a_subclass_set_is_that_object": """
+class Tagged(ti.NodesVariables):
+    pass
+
+tagged = Tagged("tagged", [node("n0")])
+tagged.tag = "mine"
+parent = tagged.getNode(0).getParent()
+print(parent is tagged, type(parent).__name__, parent.tag)
+""",
     "evaluator_joint_group_outlives_evaluator": """
 from tests.trajopt_ifopt.scenes import OVERLAP_X, two_boxes_at
 boxes = two_boxes_at(OVERLAP_X)
@@ -180,6 +204,9 @@ EXPECTED = {
     "parent_is_the_python_set": "True True True",
     "parent_keeps_the_factory_set_alive": "factory 2",
     "var_of_a_freed_set_does_not_alias_a_new_one": "REJECTED",
+    "unlinked_collision_update_on_a_python_set": "1 1",
+    "unlinked_collision_update_keeps_its_set": "1 1",
+    "parent_of_a_subclass_set_is_that_object": "True Tagged mine",
     "var_from_set_outlives_set": "n0 set",
     "var_from_get_node_outlives_set": "set_0 set",
     "node_outlives_set": "n0 set",
@@ -274,3 +301,10 @@ def test_node_parent_unavailable_error_is_a_runtime_error():
     from tesseract_robotics import trajopt_ifopt as ti
 
     assert issubclass(ti.NodeParentUnavailableError, RuntimeError)
+
+
+def test_nodes_given_as_a_str_raise_a_clear_type_error():
+    from tesseract_robotics import trajopt_ifopt as ti
+
+    with pytest.raises(TypeError, match="sequence of Node, not str"):
+        ti.NodesVariables("set", "n0")

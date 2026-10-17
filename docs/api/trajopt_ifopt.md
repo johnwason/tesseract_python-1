@@ -32,7 +32,8 @@ back with `getNode` / `getNodes`), and each `Var` reports its `Node` (`Var.getPa
 `createNodesVariables`), it is alive and it holds that `Node`; the result keeps the set alive. A
 `Node` of a set C++ owns, such as the planner's nodes a Python composite profile's `create` receives,
 raises `NodeParentUnavailableError` (a `RuntimeError`), during `create` too: the planner frees that
-set when its solve returns, and a `Node` holds only a raw pointer to it.
+set when its solve returns, and a `Node` holds only a raw pointer to it. For a set of a Python
+subclass of `NodesVariables`, `getParent()` returns that very object.
 
 ```python
 from tesseract_robotics.trajopt_ifopt import Bounds, Node, NodesVariables
@@ -139,7 +140,11 @@ A constraint writes its Jacobian columns at its `Var`s' indices, so linking it t
 `VarNotInVariableSetError` unless every `Var` it was built on is in that set (the set holds the
 `Var`'s `Node`, and that `Node` the `Var`); the constraint stays unlinked. The collision constraints read the variable set's hash through `var.getParent().getParent()`.
 They raise `VarNotInVariableSetError` (a `ValueError`) at construction for a `Var` that is not in
-a `NodesVariables`; upstream would dereference null on the first `update()`.
+a `NodesVariables`; upstream would dereference null on the first `update()`. A linked collision
+constraint's `update()` reads the set it is linked to. Unlinked, `update()` needs each `Var`'s set
+to be one built from Python and still alive, and holds it for the call; for a `Var` kept from a
+planner's set (a profile's `create`) it raises `NodeParentUnavailableError`, since the planner frees
+that set when its solve returns.
 
 0.34 constraint constructors take `Var` references directly (not
 `JointPosition` lists). See [changes](../changes.md) for the migration details.
