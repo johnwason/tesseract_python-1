@@ -13,6 +13,8 @@ take only the QP solution vector. The [changelog](CHANGELOG.md) lists every chan
 | Unreleased | A collision constraint on a `Var` outside a `NodesVariables` raises `VarNotInVariableSetError` (a `ValueError`) at construction instead of segfaulting on its first `update()` | [Hand the `Node` over first](#collision-constraints-need-a-var-in-a-variable-set) |
 | Unreleased | `Node.getParent` raises `NodeParentUnavailableError` for planner-owned nodes, including inside `create` overrides | [Keep the planner's `Node`s, not their set](#nodegetparent-raises-for-planner-owned-nodes) |
 | Unreleased | `OSQPEigenSolver.update*` raise `QPSizeError` on a wrong-length vector | [Size by `init()`](#osqpeigensolver-updates-check-sizes) |
+| Unreleased | 16 command-language waypoint, instruction and Poly types compare by value and are unhashable | [A stable key, or `id()`](#command-language-types-compare-by-value-and-are-unhashable) |
+| Unreleased | `TOTGCompositeProfile`, `ISPCompositeProfile`, `ISPMoveProfile`, `ConstantTCPSpeedCompositeProfile` compare by value and are unhashable | [A stable key, or `id()`](#time-parameterization-profiles-compare-by-value-and-are-unhashable) |
 | 0.35.0.9 | `ChangeCollisionMarginsCommand(pair_margin_data)` merges the pair margins (`MODIFY`) instead of replacing them | [Pass `REPLACE`](#changecollisionmarginscommandpair_margin_data-defaults-to-modify) |
 | 0.35.0.9 | `MotionProgram` / `get_manipulator_info` require `tcp_frame` and `working_frame`; `fk` / `ik` require `tip_link`; `to_composite_instruction` has no `tcp_frame` | [Name the frames](#the-planning-api-no-longer-picks-a-tcp-or-working-frame) |
 | 0.35.0.9 | `tesseract_geometry.PointCloudPoint` renamed | [`PointCloud.Point`](#pointcloudpoint-renamed-to-pointcloudpoint) |
@@ -87,6 +89,37 @@ too. `getParent()` still returns the set for `Node`s of a set built from Python:
 and raise `QPSizeError` (a `ValueError`) unless the vector has `init()`'s `num_vars` (gradient)
 or `num_cnts` (bounds) entries (#283). trajopt checked with `assert` only and read past a short
 vector. Call `init(num_vars, num_cnts)` with the QP's size before the updates.
+### Command-language types compare by value and are unhashable
+
+The command-language waypoints, instructions and Polys compared by identity: two
+`JointWaypoint(["a"], [1.0])` were unequal. They now bind `__eq__`/`__ne__` from the C++
+operators and set `__hash__ = None`, as the collision, common and environment types did in
+0.35.0.9 (#261): `CartesianWaypoint`, `JointWaypoint`, `StateWaypoint`, `WaypointPoly`,
+`CartesianWaypointPoly`, `JointWaypointPoly`, `StateWaypointPoly`, `InstructionPoly`,
+`MoveInstructionPoly`, `MoveInstruction`, `CompositeInstruction`, `WaitInstruction`,
+`TimerInstruction`, `SetAnalogInstruction`, `SetDigitalInstruction`, `SetToolInstruction`.
+
+`hash(obj)`, `{obj}` and `d[obj] = …` now raise `TypeError: unhashable type`. Every instruction
+has a UUID, which is the natural key; `MoveInstruction` equality also compares it, so two moves
+built separately are unequal until the UUIDs match:
+
+| before | after |
+| --- | --- |
+| `seen = {move}` | `seen = {move.getUUID()}` |
+| `cache[waypoint] = result` | `cache[id(waypoint)] = result` (keep `waypoint` alive) |
+| `move in done` meant identity | `any(m is move for m in done)`; `in` now compares values |
+
+### Time-parameterization profiles compare by value and are unhashable
+
+The four time-parameterization profiles were bound without their C++ `operator==`, so `==`
+compared identity: `TOTGCompositeProfile() == TOTGCompositeProfile()` was `False`. They now bind
+`__eq__`/`__ne__` and set `__hash__ = None` (#261), as the collision, common and environment value
+types did in 0.35.0.9. The new `RuckigTrajectorySmoothingCompositeProfile` behaves the same way.
+
+| before | after |
+| --- | --- |
+| `{TOTGCompositeProfile(): …}`, `set_of_profiles.add(p)` | key by name, e.g. `{"DEFAULT": p}`, or by `id(p)` |
+| `p == q` (identity) | `p is q` |
 
 ## 0.35.0.9
 

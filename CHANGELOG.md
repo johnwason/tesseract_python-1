@@ -8,10 +8,13 @@
 - **`CollisionCoeffData`, `TrajOptCollisionConfig` and `SQPParameters` compare by value and are unhashable** — `==` compared identity; `hash()`, `set` members and `dict` keys now raise `TypeError` ([#261](https://github.com/tesseract-robotics/tesseract_nanobind/issues/261)).
 - **The collision constraints reject a `Var` outside a variable set** — `DiscreteCollisionConstraint`, `DiscreteCollisionNumericalConstraint`, `ContinuousCollisionConstraint` and the new collision classes raise `VarNotInVariableSetError` (a `ValueError`) at construction when the `Var` is not in a `NodesVariables`. trajopt reads the set's hash through the `Var`'s parent pointers unchecked, so such a constraint dereferenced null on its first `update()`. A `Var` from `Node.addVar` qualifies once its `Node` is handed to `NodesVariables` ([#297]).
 - **`OSQPEigenSolver`'s update methods check sizes** — `updateGradient`, `updateLowerBound`, `updateUpperBound` and `updateBounds` raise `QPSizeError` (a `ValueError`) on a vector whose length is not the `init()` size; trajopt indexed past it ([#283]).
+- **Command-language types compare by value and are unhashable** — the 16 waypoint, instruction and Poly types bind `__eq__`/`__ne__` from the C++ operators and set `__hash__ = None`; `hash()`, `set` members and `dict` keys raise `TypeError`. `MoveInstruction` equality includes both UUIDs ([#261]; `docs/breaking-changes.md` has the migration).
+- **Time-parameterization profiles compare by value and are unhashable** — `TOTGCompositeProfile`, `ISPCompositeProfile`, `ISPMoveProfile` and `ConstantTCPSpeedCompositeProfile` bind `__eq__`/`__ne__` from the C++ `operator==` (identity before) and set `__hash__ = None`, as #169 did for collision, common and environment: `hash()`, `set` members and `dict` keys raise `TypeError` ([#261]).
 
 ### Changes
 
 - **Docs build with Zensical** — the site builds with `zensical build --strict` instead of MkDocs + Material for MkDocs (maintenance ends 5 November 2026; MkDocs 2.0 drops plugins). `mkdocs.yml` is read unchanged and renders the same 54 pages; strict mode now also fails on broken anchors. Zensical and `mkdocstrings>=1` need Python ≥3.11, so the docs tooling moves out of the default pixi feature into a `docs` env (Python 3.12, no C++ stack): `pixi run docs` / `pixi run docs-build` run there ([#252]).
+- **Command-language bindings complete** — instruction UUIDs as canonical strings (`getUUID`/`setUUID`/`getParentUUID`/`setParentUUID`/`regenerateUUID` on the nine instruction types, [#262]); `copy.copy`/`copy.deepcopy` on the waypoints, instructions and Polys ([#263]); `WaypointPoly`, `MoveInstructionPoly` and `InstructionPoly` built from the types they wrap, the full `MoveInstruction` (path profile, `manipulator_info`) and five-argument `StateWaypoint` constructors ([#264]); profile overrides ([#265]); `createChild`/`isChild`, `create*Waypoint`, `isLinear`/`isFreespace`/`isCircular` ([#266]); tolerances, `setSeed`, effort on the waypoint Polys ([#267]); `as*` casts returning references on the waypoint and move-instruction Polys ([#268]); `CompositeInstruction` `insert`, `__delitem__`, `pop_back`, `front`/`back`/`at` and capacity members ([#269]), traversal (`flatten`, `getFirst/Last(Move)Instruction`, counts, `moveFilter`, [#270]) and `getUserData`/`setUserData` ([#271]); `ProfileDictionary.addProfile` for several names, `getProfileEntry`, `getAllProfileEntries` ([#272]); the `utils.h` functions (`toJointTrajectory`, joint-position helpers, `clampToJointLimits`, `makeTimeMonotonicallyIncreasing`, `toDelimitedFile`, [#274]; `validateSeedStructure` is not bound: declared in `utils.h`, not defined in tesseract 0.35.0).
 - **The binding audit states its coverage** — the report names every binding module it does not audit, with the reason; a binding module in neither table fails the run. Header ownership supports several prefixes per module and nested prefixes; the planning and trajopt bindings now parse ([#256]).
 - **trajopt_ifopt names its tesseract types** — the extension imports `tesseract_kinematics` and `tesseract_environment`, so its signatures and stub name `JointGroup`, `KinematicGroup` and `Environment` instead of quoted C++ names ([#285]).
 - **The planner's collision constraints** — `DiscreteCollisionConstraintD`, `ContinuousCollisionConstraintD` (one row per contact) and `ContinuousCollisionNumericalConstraint` are bound; `trajopt_ifopt` and `trajopt_sqp` drop `__all__`, so the star import re-exports every bound name, `toString` included ([#291], [#284]).
@@ -38,6 +41,12 @@
 - **`calcForwardNumJac` raises `NumericalJacobianSizeError`** (a `ValueError`) when `f` returns a different length at a perturbed `x`; trajopt read past the shorter vector ([#295]).
 - **`CartPosConstraint.calcJacobianBlock` takes its joint count from its `Var`** — it divided `getNonZeros()` by `getRows()`, and accepted any length with every axis weighted zero ([#289]).
 - **A stored `SQPCallback` problem can't outlive the call** — a problem with no Python object (one `TrajOptIfoptMotionPlanner` builds in C++) reaches a Python callback as a `QPProblemView`; once the call returns, every method on it raises `QPProblemExpiredError` (a `RuntimeError`). A callback that kept the problem used to read freed memory after `solve()` returned. A problem passed to `solve()` from Python still arrives as that object ([#308]).
+- **`InstructionsTrajectory(program)` keeps `program` alive** — it stores references into the program; built from a temporary (`InstructionsTrajectory(make_program())`) it read freed memory once the program was collected. It also holds references into the program's instruction vector, which appending, inserting or erasing instructions can reallocate: a later call returned stale values (5 appends), raised a `RuntimeError` (50) or crashed (20000). The binding now records the addresses of the program's move instructions and re-flattens the program before every method; on any difference it raises the new `StaleTrajectoryError` (a `RuntimeError`): build a new trajectory. `setData` still writes into the program. Cost per call: +0.3 µs on an 11-move program, +4.7 µs on 1000 moves. `getPosition`, `getVelocity`, `getAcceleration`, `getTimeFromStart` and `setData` raise `IndexError` for `i` outside `[0, size())` (upstream indexes unchecked); negative `i` is rejected, not wrapped ([#281]).
+- **`TimeParameterization.compute` names `Environment` in its signature** — the stub said `"tesseract::environment::Environment"`; the module now imports `tesseract_environment` first ([#277]).
+- **Ruckig jerk-limited smoothing** — `RuckigTrajectorySmoothing` and `RuckigTrajectorySmoothingCompositeProfile` (`duration_extension_fraction`, `max_duration_extension_factor`, `override_limits`, `velocity_limits`, `acceleration_limits`, `jerk_limits`) are bound; the module links `tesseract::time_parameterization_ruckig` ([#278]).
+- **`rescaleTimings(program, scalings)`** — rescales each sub-composite's timing in place; a `scalings` list that is not `len(program)` long raises the new `ScalingsLengthError` (a `ValueError`; upstream only asserts) ([#279]).
+- **`ISPCompositeProfile.minimum_time_delta`** is bound ([#280]).
+- **`createKey()` on the time-parameterization profiles** — a static `X.createKey()` returns the `ProfileDictionary` key `X().getKey()` without building a profile, on all five profile classes ([#273]).
 
 ## [0.35.0.9] - 2026-10-15 — TrajOptQPProblem + value equality + named planning frames + binding audit
 
@@ -507,6 +516,13 @@ First PyPI-published macOS arm64 wheels, shipping via a dedicated `wheels-macos.
 [#297]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/297
 [#298]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/298
 [#308]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/308
+[#261]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/261
+[#273]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/273
+[#277]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/277
+[#278]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/278
+[#279]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/279
+[#280]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/280
+[#281]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/281
 [trajopt#618]: https://github.com/tesseract-robotics/trajopt/issues/618
 [tesseract#1381]: https://github.com/tesseract-robotics/tesseract/issues/1381
 [07f8f9c]: https://github.com/tesseract-robotics/tesseract_nanobind/commit/07f8f9c8c54ab13c3d10ceca00181091d0126336
@@ -599,3 +615,15 @@ First PyPI-published macOS arm64 wheels, shipping via a dedicated `wheels-macos.
 [@johnwason]: https://github.com/johnwason
 [@marip8]: https://github.com/marip8
 [@seonixx]: https://github.com/seonixx
+[#262]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/262
+[#263]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/263
+[#264]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/264
+[#265]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/265
+[#266]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/266
+[#267]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/267
+[#268]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/268
+[#269]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/269
+[#270]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/270
+[#271]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/271
+[#272]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/272
+[#274]: https://github.com/tesseract-robotics/tesseract_nanobind/issues/274

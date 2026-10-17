@@ -7,10 +7,28 @@ import numpy
 from numpy.typing import NDArray
 
 import tesseract_robotics.tesseract_command_language._tesseract_command_language
+import tesseract_robotics.tesseract_environment._tesseract_environment
 
+
+class StaleTrajectoryError(RuntimeError):
+    """
+    The program changed after the InstructionsTrajectory was built; build a new one.
+    """
 
 class InstructionsTrajectory:
-    def __init__(self, program: tesseract_robotics.tesseract_command_language._tesseract_command_language.CompositeInstruction) -> None: ...
+    def __init__(self, program: tesseract_robotics.tesseract_command_language._tesseract_command_language.CompositeInstruction) -> None:
+        """
+        Build a trajectory view over the move instructions of `program`.
+
+        The trajectory keeps `program` alive and reads and writes its waypoints in place
+        (`setData` changes `program`). Once instructions are appended, inserted or erased
+        in `program`, every method raises `StaleTrajectoryError`: build a new
+        trajectory. Each call re-flattens `program`, O(number of instructions).
+
+        Raises:
+            StaleTrajectoryError: on any method call after `program` changed (a `RuntimeError`).
+            IndexError: an index method got `i` outside `[0, size())`; negative `i` is not wrapped.
+        """
 
     def getPosition(self, i: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
 
@@ -79,6 +97,15 @@ class TOTGCompositeProfile(tesseract_robotics.tesseract_command_language._tesser
     @min_angle_change.setter
     def min_angle_change(self, arg: float, /) -> None: ...
 
+    @staticmethod
+    def createKey() -> int: ...
+
+    def __eq__(self, arg: TOTGCompositeProfile, /) -> bool: ...
+
+    def __ne__(self, arg: TOTGCompositeProfile, /) -> bool: ...
+
+    __hash__: None = None
+
 class ISPCompositeProfile(tesseract_robotics.tesseract_command_language._tesseract_command_language.Profile):
     @overload
     def __init__(self) -> None: ...
@@ -122,6 +149,21 @@ class ISPCompositeProfile(tesseract_robotics.tesseract_command_language._tessera
     @max_acceleration_scaling_factor.setter
     def max_acceleration_scaling_factor(self, arg: float, /) -> None: ...
 
+    @property
+    def minimum_time_delta(self) -> float: ...
+
+    @minimum_time_delta.setter
+    def minimum_time_delta(self, arg: float, /) -> None: ...
+
+    @staticmethod
+    def createKey() -> int: ...
+
+    def __eq__(self, arg: ISPCompositeProfile, /) -> bool: ...
+
+    def __ne__(self, arg: ISPCompositeProfile, /) -> bool: ...
+
+    __hash__: None = None
+
 class ISPMoveProfile(tesseract_robotics.tesseract_command_language._tesseract_command_language.Profile):
     @overload
     def __init__(self) -> None: ...
@@ -141,10 +183,19 @@ class ISPMoveProfile(tesseract_robotics.tesseract_command_language._tesseract_co
     @max_acceleration_scaling_factor.setter
     def max_acceleration_scaling_factor(self, arg: float, /) -> None: ...
 
+    @staticmethod
+    def createKey() -> int: ...
+
+    def __eq__(self, arg: ISPMoveProfile, /) -> bool: ...
+
+    def __ne__(self, arg: ISPMoveProfile, /) -> bool: ...
+
+    __hash__: None = None
+
 class TimeParameterization:
     def getName(self) -> str: ...
 
-    def compute(self, composite_instruction: tesseract_robotics.tesseract_command_language._tesseract_command_language.CompositeInstruction, env: "tesseract::environment::Environment", profiles: tesseract_robotics.tesseract_command_language._tesseract_command_language.ProfileDictionary) -> bool: ...
+    def compute(self, composite_instruction: tesseract_robotics.tesseract_command_language._tesseract_command_language.CompositeInstruction, env: tesseract_robotics.tesseract_environment._tesseract_environment.Environment, profiles: tesseract_robotics.tesseract_command_language._tesseract_command_language.ProfileDictionary) -> bool: ...
 
 class TimeOptimalTrajectoryGeneration(TimeParameterization):
     def __init__(self, name: str = 'TOTG') -> None: ...
@@ -195,5 +246,84 @@ class ConstantTCPSpeedCompositeProfile(tesseract_robotics.tesseract_command_lang
     @max_acceleration_scaling_factor.setter
     def max_acceleration_scaling_factor(self, arg: float, /) -> None: ...
 
+    @staticmethod
+    def createKey() -> int: ...
+
+    def __eq__(self, arg: ConstantTCPSpeedCompositeProfile, /) -> bool: ...
+
+    def __ne__(self, arg: ConstantTCPSpeedCompositeProfile, /) -> bool: ...
+
+    __hash__: None = None
+
 class ConstantTCPSpeedParameterization(TimeParameterization):
     def __init__(self, name: str = 'ConstantTCPSpeed') -> None: ...
+
+class RuckigTrajectorySmoothingCompositeProfile(tesseract_robotics.tesseract_command_language._tesseract_command_language.Profile):
+    @overload
+    def __init__(self) -> None: ...
+
+    @overload
+    def __init__(self, duration_extension_fraction: float, max_duration_extension_factor: float) -> None: ...
+
+    @property
+    def duration_extension_fraction(self) -> float: ...
+
+    @duration_extension_fraction.setter
+    def duration_extension_fraction(self, arg: float, /) -> None: ...
+
+    @property
+    def max_duration_extension_factor(self) -> float: ...
+
+    @max_duration_extension_factor.setter
+    def max_duration_extension_factor(self, arg: float, /) -> None: ...
+
+    @property
+    def override_limits(self) -> bool: ...
+
+    @override_limits.setter
+    def override_limits(self, arg: bool, /) -> None: ...
+
+    @property
+    def velocity_limits(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')]: ...
+
+    @velocity_limits.setter
+    def velocity_limits(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')] | Sequence[Sequence[float]], /) -> None: ...
+
+    @property
+    def acceleration_limits(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')]: ...
+
+    @acceleration_limits.setter
+    def acceleration_limits(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')] | Sequence[Sequence[float]], /) -> None: ...
+
+    @property
+    def jerk_limits(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')]: ...
+
+    @jerk_limits.setter
+    def jerk_limits(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, 2), order='F')] | Sequence[Sequence[float]], /) -> None: ...
+
+    @staticmethod
+    def createKey() -> int: ...
+
+    def __eq__(self, arg: RuckigTrajectorySmoothingCompositeProfile, /) -> bool: ...
+
+    def __ne__(self, arg: RuckigTrajectorySmoothingCompositeProfile, /) -> bool: ...
+
+    __hash__: None = None
+
+class RuckigTrajectorySmoothing(TimeParameterization):
+    def __init__(self, name: str = 'RuckigTrajectorySmoothing') -> None: ...
+
+class ScalingsLengthError(ValueError):
+    """rescaleTimings got a scalings list that is not len(program) long."""
+
+def rescaleTimings(program: tesseract_robotics.tesseract_command_language._tesseract_command_language.CompositeInstruction, scalings: Sequence[float]) -> None:
+    """
+    Rescale the timing of each sub-composite of `program` in place.
+
+    Every element of `program` must be a CompositeInstruction; `scalings[i]` scales
+    element i linearly (0.5 is half speed). A scaling below 1e-6 is replaced by 1.0
+    with only a logged warning.
+
+    Raises:
+        ScalingsLengthError: `scalings` is not `len(program)` long (a `ValueError`).
+    """
