@@ -43,6 +43,9 @@ class NodeOwnershipError(ValueError):
     A Node handed to NodesVariables that is in a variable set already, or twice.
     """
 
+class NodeParentUnavailableError(RuntimeError):
+    """Node.getParent on a Node of a variable set C++ owns (a planner's)."""
+
 class NumericalJacobianSizeError(ValueError):
     """
     calcForwardNumJac over a function whose output length changes between calls.
@@ -207,7 +210,7 @@ class Node:
 
     def getParent(self) -> NodesVariables | None:
         """
-        The NodesVariables holding this node, or None before it is handed to one
+        The NodesVariables holding this node (kept alive by the result), or None before it is handed to one. Raises NodeParentUnavailableError for a Node of a set C++ owns (a planner's, handed to a profile's create), even during that call
         """
 
     @overload

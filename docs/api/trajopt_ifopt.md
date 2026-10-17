@@ -28,6 +28,12 @@ back with `getNode` / `getNodes`), and each `Var` reports its `Node` (`Var.getPa
 `NodeOwnershipError`. A `Var` or `Node` read out of a set keeps the set alive, as does a handed-over
 `Node`, so a `Var` taken from a `Node` before the handover stays valid after the set is dropped.
 
+`Node.getParent()` returns the set only when Python built it (`NodesVariables(...)` or
+`createNodesVariables`), it is alive and it holds that `Node`; the result keeps the set alive. A
+`Node` of a set C++ owns, such as the planner's nodes a Python composite profile's `create` receives,
+raises `NodeParentUnavailableError` (a `RuntimeError`), during `create` too: the planner frees that
+set when its solve returns, and a `Node` holds only a raw pointer to it.
+
 ```python
 from tesseract_robotics.trajopt_ifopt import Bounds, Node, NodesVariables
 
@@ -130,8 +136,8 @@ never defines it, so it is not bound. Nor are the `list[Bounds]` constructors of
 
 A constraint writes its Jacobian columns at its `Var`s' indices, so linking it to a variable set
 (`linkWithVariables`, or `TrajOptQPProblem.addConstraintSet` / `addCostSet`) raises
-`VarNotInVariableSetError` unless every `Var` it was built on is in that set; the constraint stays
-unlinked. The collision constraints read the variable set's hash through `var.getParent().getParent()`.
+`VarNotInVariableSetError` unless every `Var` it was built on is in that set (the set holds the
+`Var`'s `Node`, and that `Node` the `Var`); the constraint stays unlinked. The collision constraints read the variable set's hash through `var.getParent().getParent()`.
 They raise `VarNotInVariableSetError` (a `ValueError`) at construction for a `Var` that is not in
 a `NodesVariables`; upstream would dereference null on the first `update()`.
 

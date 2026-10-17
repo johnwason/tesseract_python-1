@@ -11,6 +11,7 @@ take only the QP solution vector. The [changelog](CHANGELOG.md) lists every chan
 | Unreleased | `CollisionCoeffData.setPairCollisionCoeff` / `getPairCollisionCoeff` removed | [The C++ names](#setpaircollisioncoeff-and-getpaircollisioncoeff-removed) |
 | Unreleased | `CollisionCoeffData`, `TrajOptCollisionConfig`, `SQPParameters` compare by value and are unhashable | [A stable key, or `id()`](#trajopt-value-types-compare-by-value-and-are-unhashable) |
 | Unreleased | A collision constraint on a `Var` outside a `NodesVariables` raises `VarNotInVariableSetError` (a `ValueError`) at construction instead of segfaulting on its first `update()` | [Hand the `Node` over first](#collision-constraints-need-a-var-in-a-variable-set) |
+| Unreleased | `Node.getParent` raises `NodeParentUnavailableError` for planner-owned nodes, including inside `create` overrides | [Keep the planner's `Node`s, not their set](#nodegetparent-raises-for-planner-owned-nodes) |
 | Unreleased | `OSQPEigenSolver.update*` raise `QPSizeError` on a wrong-length vector | [Size by `init()`](#osqpeigensolver-updates-check-sizes) |
 | 0.35.0.9 | `ChangeCollisionMarginsCommand(pair_margin_data)` merges the pair margins (`MODIFY`) instead of replacing them | [Pass `REPLACE`](#changecollisionmarginscommandpair_margin_data-defaults-to-modify) |
 | 0.35.0.9 | `MotionProgram` / `get_manipulator_info` require `tcp_frame` and `working_frame`; `fk` / `ik` require `tip_link`; `to_composite_instruction` has no `tcp_frame` | [Name the frames](#the-planning-api-no-longer-picks-a-tcp-or-working-frame) |
@@ -67,6 +68,18 @@ qualifies once its `Node` is handed to `NodesVariables`:
 | before | after |
 | --- | --- |
 | `var = node.addVar(...)`; `DiscreteCollisionConstraint(evaluator, var)`; `NodesVariables("t", [node])` | `var = node.addVar(...)`; `NodesVariables("t", [node])`; `DiscreteCollisionConstraint(evaluator, var)` |
+
+### `Node.getParent` raises for planner-owned nodes
+
+A Python `TrajOptIfoptCompositeProfile.create` receives the planner's `Node`s, whose variable set
+the planner builds in C++ and frees when its solve returns. `Node.getParent()` on such a `Node`
+returned a view of that set, which read freed memory once the solve was over (#297). It now raises
+`NodeParentUnavailableError` (a `RuntimeError`) for every `Node` of a set C++ owns, during `create`
+too. `getParent()` still returns the set for `Node`s of a set built from Python:
+
+| before | after |
+| --- | --- |
+| `nodes[0].getParent().getRows()` in `create` | read what `create` needs from the `Node`s themselves: `sum(node.size() for node in nodes)` |
 
 ### `OSQPEigenSolver` updates check sizes
 

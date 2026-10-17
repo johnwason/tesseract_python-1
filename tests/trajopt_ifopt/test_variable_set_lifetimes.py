@@ -6,6 +6,13 @@ outlives the set, and its parent chain stays readable. A Node handed to NodesVar
 by the set from then on; the caller's own reference to it is unusable, and the set's getters
 return working Nodes even while the caller still holds it.
 
+Node.getParent hands out a set only while it is alive and holds the Node: one built from Python
+(NodesVariables(...) or createNodesVariables). A Node from a set C++ owns (a planner's, reached
+through a profile's create override) raises NodeParentUnavailableError instead of reading a set
+that may be gone. Linking a constraint checks that the set holds its Vars' Nodes, never comparing
+addresses alone, so a Var whose set was freed cannot pass for a member of a new set that reuses
+the memory.
+
 The evaluators' getJointGroup, CartLineConstraint.getInfo and
 InverseKinematicsConstraint.getKinematicInfo return references into their owner, which the
 result keeps alive too.
@@ -84,6 +91,41 @@ names = [n.getName() for n in nv.getNodes()]
 var = nv.getNode(0).getVar("joints")
 print(nv.getNode(0).getName(), names[0], var.getParent().getName())
 """,
+    "parent_is_the_python_set": """
+nv = ti.NodesVariables("set", [node("n0")])
+factory = ti.createNodesVariables("factory", ["a", "b"], [np.zeros(2)], [ti.Bounds(-1.0, 1.0)] * 2)
+loose = node("loose")
+print(nv.getNode(0).getParent() is nv, factory.getNode(0).getParent() is factory,
+      loose.getParent() is None)
+""",
+    "parent_keeps_the_factory_set_alive": """
+nv = ti.createNodesVariables("factory", ["a", "b"], [np.zeros(2)], [ti.Bounds(-1.0, 1.0)] * 2)
+parent = nv.getNode(0).getParent()
+del nv
+junk = churn()
+print(parent.getName(), parent.getRows())
+""",
+    "var_of_a_freed_set_does_not_alias_a_new_one": """
+def factory(name):
+    return ti.createNodesVariables(name, ["a", "b"], [np.zeros(2)], [ti.Bounds(-1.0, 1.0)] * 2)
+
+old = factory("old")
+var = old.getNode(0).getVar("joints")
+constraint = ti.JointPosConstraint(np.zeros(2), var, np.ones(2))
+del var, old  # the constraint keeps the Var; its Node and set are freed
+gc.collect()
+outcome = "REJECTED"
+fresh = []
+for i in range(200):  # new sets reuse the freed memory
+    fresh.append(factory(f"new{i}"))
+    try:
+        constraint.linkWithVariables(fresh[-1])
+    except ti.VarNotInVariableSetError:
+        continue
+    outcome = "ALIASED"
+    break
+print(outcome)
+""",
     "evaluator_joint_group_outlives_evaluator": """
 from tests.trajopt_ifopt.scenes import OVERLAP_X, two_boxes_at
 boxes = two_boxes_at(OVERLAP_X)
@@ -135,6 +177,9 @@ print(held.working_frame, held.tcp_frame, len(held.manip.getJointNames()))
 }
 
 EXPECTED = {
+    "parent_is_the_python_set": "True True True",
+    "parent_keeps_the_factory_set_alive": "factory 2",
+    "var_of_a_freed_set_does_not_alias_a_new_one": "REJECTED",
     "var_from_set_outlives_set": "n0 set",
     "var_from_get_node_outlives_set": "set_0 set",
     "node_outlives_set": "n0 set",
@@ -223,3 +268,9 @@ print(nv.getNode(0).getName(), nv.getRows())
     raised, state = proc.stdout.splitlines()
     assert raised.startswith("RAISED"), raised
     assert state == "n0 2"
+
+
+def test_node_parent_unavailable_error_is_a_runtime_error():
+    from tesseract_robotics import trajopt_ifopt as ti
+
+    assert issubclass(ti.NodeParentUnavailableError, RuntimeError)
