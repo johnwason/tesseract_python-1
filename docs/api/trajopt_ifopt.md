@@ -33,7 +33,8 @@ back with `getNode` / `getNodes`), and each `Var` reports its `Node` (`Var.getPa
 `Node` of a set C++ owns, such as the planner's nodes a Python composite profile's `create` receives,
 raises `NodeParentUnavailableError` (a `RuntimeError`), during `create` too: the planner frees that
 set when its solve returns, and a `Node` holds only a raw pointer to it. For a set of a Python
-subclass of `NodesVariables`, `getParent()` returns that very object.
+subclass of `NodesVariables`, `getParent()` returns that very object. A reference cycle through a `Node` on such an object
+(`s.n = s.getNode(0)`) is not collected by the garbage collector: break it by hand.
 
 ```python
 from tesseract_robotics.trajopt_ifopt import Bounds, Node, NodesVariables

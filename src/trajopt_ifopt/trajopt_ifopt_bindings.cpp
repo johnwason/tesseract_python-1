@@ -182,7 +182,7 @@ public:
     NodesVariablesBinding(NodesVariablesBinding&&) = delete;
     NodesVariablesBinding& operator=(NodesVariablesBinding&&) = delete;
 
-    // The live Python-built set for which holds_member(set) is true, kept alive by the result; null if
+    // The live Python-built set for which holds_member(set) is true (a full scan; the Var path), kept alive by the result; null if
     // none. A registered set is alive while the lock is held (its destructor waits for the lock), so
     // holds_member may read it; only the match is locked, and released after the lock.
     template <class HoldsMember>
@@ -201,15 +201,20 @@ public:
 
     // node's set, kept alive by the result; raises unless it is a live Python-built set holding node
     static std::shared_ptr<ti::NodesVariables> parent_of(const ti::Node& node) {
-        std::shared_ptr<ti::NodesVariables> set = find_live([&node](const ti::NodesVariables& candidate) {
-            return &candidate == node.getParent() && holds(candidate, &node);
-        });
+        std::shared_ptr<const NodesVariablesBinding> set;
+        {
+            // node is alive (the caller holds it), so its parent pointer is the key: no scan
+            const std::lock_guard<std::mutex> lock(mutex());
+            const ti::NodesVariables* parent = node.getParent();
+            if (live().count(parent) != 0 && holds(*parent, &node))
+                set = static_cast<const NodesVariablesBinding*>(parent)->weak_from_this().lock();
+        }
         if (!set)
             throw NodeParentUnavailableError(
                 "Node.getParent: the variable set of Node '" + node.getName() +
                 "' is owned by C++ (a planner's, handed to a profile's create) and is not reachable "
                 "from Python; it may be gone already");
-        return set;
+        return std::const_pointer_cast<NodesVariablesBinding>(set);
     }
 
 private:
@@ -693,6 +698,17 @@ NB_MODULE(_trajopt_ifopt, m) {
         // could find the base one. Here the set gets exactly one, of the requested type.
         .def_static("__new__",
              [](nb::handle cls, std::string variable_name, nb::typed<nb::sequence, ti::Node> node_objects) {
+                 // first: before any Node is taken over, as Python's own __new__ checks
+                 const nb::handle base = nb::type<ti::NodesVariables>();
+                 if (!PyType_Check(cls.ptr()) ||
+                     !PyType_IsSubtype(reinterpret_cast<PyTypeObject*>(cls.ptr()),
+                                       reinterpret_cast<PyTypeObject*>(base.ptr()))) {
+                     // Python's wording: the type's name, or the object's repr if it is no type
+                     const std::string name = PyType_Check(cls.ptr()) ? nb::cast<std::string>(nb::type_name(cls))
+                                                                      : nb::cast<std::string>(nb::repr(cls));
+                     throw nb::type_error(("NodesVariables.__new__(" + name + "): " + name +
+                                           " is not a subtype of NodesVariables").c_str());
+                 }
                  if (nb::isinstance<nb::str>(node_objects))
                      throw nb::type_error("NodesVariables: nodes must be a sequence of Node, not str");
                  std::vector<nb::handle> nodes;

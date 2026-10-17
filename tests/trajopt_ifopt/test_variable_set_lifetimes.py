@@ -308,3 +308,23 @@ def test_nodes_given_as_a_str_raise_a_clear_type_error():
 
     with pytest.raises(TypeError, match="sequence of Node, not str"):
         ti.NodesVariables("set", "n0")
+
+
+@pytest.mark.parametrize("cls_name", ["Node", "int", "Variables"])
+def test_new_rejects_a_class_that_is_not_a_nodes_variables(cls_name: str):
+    proc = _run_child(
+        f"""
+cls = {{"Node": ti.Node, "int": int, "Variables": ti.Variables}}["{cls_name}"]
+n0 = node("n0")
+try:
+    ti.NodesVariables.__new__(cls, "set", [n0])
+    print("ACCEPTED")
+except TypeError as error:
+    print("RAISED", error)
+print(n0.getName())
+"""
+    )
+    assert proc.returncode == 0, proc.stderr
+    raised, name = proc.stdout.splitlines()
+    assert raised.startswith("RAISED") and "is not a subtype of NodesVariables" in raised, raised
+    assert name == "n0", "a rejected call leaves the Node with its caller"
