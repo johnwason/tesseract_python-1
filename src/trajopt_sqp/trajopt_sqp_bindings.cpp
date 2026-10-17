@@ -50,7 +50,128 @@ void validate_qp_solution(const tsqp::QPProblem& problem,
                                     std::to_string(n_qp) +
                                     " entries, the NLP variables followed by the slack variables");
 }
+
+// QPProblem::setVariables(const double* x) reads getNumNLPVars() doubles through an Eigen::Map
+// without a length (trajopt_qp_problem.cpp:702, trajopt 0.35.0).
+struct VariablesSizeError : std::invalid_argument {
+    using std::invalid_argument::invalid_argument;
+};
+
+// OSQPEigenSolver's update methods size their input against init()'s (num_vars, num_cnts) with
+// assert() only, or not at all (osqp_eigen_solver.cpp, trajopt 0.35.0), and setWarmStart writes
+// the problem's variables into an init()-sized vector: a mismatch reads or writes out of range.
+struct QPSizeError : std::invalid_argument {
+    using std::invalid_argument::invalid_argument;
+};
+
+// (num_vars, num_cnts) from the last init(). OSQPEigenSolver keeps them private; its OSQP data
+// holds the same two numbers. It is the only QPSolver: QPSolver has no Python trampoline.
+std::pair<Eigen::Index, Eigen::Index> qp_solver_size(const tsqp::QPSolver& self) {
+    const auto* osqp = dynamic_cast<const tsqp::OSQPEigenSolver*>(&self);
+    if (osqp == nullptr)
+        throw std::logic_error("QPSolver: the binding sizes only OSQPEigenSolver");
+    const auto* data = osqp->solver_->data()->getData();
+    return { static_cast<Eigen::Index>(data->n), static_cast<Eigen::Index>(data->m) };
+}
+
+void require_size(const char* method, const char* what, Eigen::Index size, const char* expected_name,
+                  Eigen::Index expected) {
+    if (size != expected)
+        throw QPSizeError(std::string(method) + ": " + what + " has " + std::to_string(size) +
+                          "; init() set " + expected_name + " = " + std::to_string(expected));
+}
+
+bool set_warm_start_checked(tsqp::QPSolver& self, const tsqp::QPProblem& qp_problem) {
+    const auto [n_vars, n_cnts] = qp_solver_size(self);
+    require_size("setWarmStart", "the problem's getNumQPVars()", qp_problem.getNumQPVars(), "num_vars", n_vars);
+    require_size("setWarmStart", "the problem's getNumQPConstraints()", qp_problem.getNumQPConstraints(),
+                 "num_cnts", n_cnts);
+    return self.setWarmStart(qp_problem);
+}
+
+// The convex model's sparse matrices; a copy, compressed for nanobind's caster
+trajopt_ifopt::Jacobian compressed(const trajopt_ifopt::Jacobian& matrix) {
+    trajopt_ifopt::Jacobian copy = matrix;
+    copy.makeCompressed();
+    return copy;
+}
 }  // namespace
+
+// A QPProblem used after the SQPCallback call it was handed to has returned
+struct QPProblemExpiredError : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+// The problem an SQPCallback receives when it has no Python object: one a planner built in C++
+// (TrajOptIfoptMotionPlanner), freed when its solve returns. Python owns this view, at its own
+// address, so nanobind's instance map never holds an entry at the problem's address; expire()
+// cuts the view off when the call returns, so a callback that stored it gets
+// QPProblemExpiredError instead of reading freed memory.
+class QPProblemView final : public tsqp::QPProblem {
+public:
+    explicit QPProblemView(const tsqp::QPProblem& problem)
+        // The callback API passes const&; Python reaches the mutators (setVariables, ...) on the
+        // solver's problem as it does through the reference cast of a Python-owned problem.
+        : problem_(const_cast<tsqp::QPProblem*>(&problem)) {}
+
+    void expire() { problem_ = nullptr; }
+
+    void addConstraintSet(std::shared_ptr<trajopt_ifopt::ConstraintSet> constraint_set) override {
+        live().addConstraintSet(std::move(constraint_set));
+    }
+    void addCostSet(std::shared_ptr<trajopt_ifopt::ConstraintSet> constraint_set,
+                    tsqp::CostPenaltyType penalty_type) override {
+        live().addCostSet(std::move(constraint_set), penalty_type);
+    }
+    void setup() override { live().setup(); }
+    void setVariables(const double* x) override { live().setVariables(x); }
+    Eigen::VectorXd getVariableValues() const override { return live().getVariableValues(); }
+    void convexify() override { live().convexify(); }
+    double evaluateTotalConvexCost(const Eigen::Ref<const Eigen::VectorXd>& var_vals) const override {
+        return live().evaluateTotalConvexCost(var_vals);
+    }
+    Eigen::VectorXd evaluateConvexCosts(const Eigen::Ref<const Eigen::VectorXd>& var_vals) const override {
+        return live().evaluateConvexCosts(var_vals);
+    }
+    double getTotalExactCost() const override { return live().getTotalExactCost(); }
+    Eigen::VectorXd getExactCosts() const override { return live().getExactCosts(); }
+    Eigen::VectorXd
+    evaluateConvexConstraintViolations(const Eigen::Ref<const Eigen::VectorXd>& var_vals) const override {
+        return live().evaluateConvexConstraintViolations(var_vals);
+    }
+    Eigen::VectorXd getExactConstraintViolations() const override { return live().getExactConstraintViolations(); }
+    void scaleBoxSize(double& scale) override { live().scaleBoxSize(scale); }
+    void setBoxSize(const Eigen::Ref<const Eigen::VectorXd>& box_size) override { live().setBoxSize(box_size); }
+    void setConstraintMeritCoeff(const Eigen::Ref<const Eigen::VectorXd>& merit_coeff) override {
+        live().setConstraintMeritCoeff(merit_coeff);
+    }
+    void print() const override { live().print(); }
+    Eigen::Index getNumNLPVars() const override { return live().getNumNLPVars(); }
+    Eigen::Index getNumNLPConstraints() const override { return live().getNumNLPConstraints(); }
+    Eigen::Index getNumNLPCosts() const override { return live().getNumNLPCosts(); }
+    Eigen::Index getNumQPVars() const override { return live().getNumQPVars(); }
+    Eigen::Index getNumQPConstraints() const override { return live().getNumQPConstraints(); }
+    const std::vector<std::string>& getNLPConstraintNames() const override { return live().getNLPConstraintNames(); }
+    const std::vector<std::string>& getNLPCostNames() const override { return live().getNLPCostNames(); }
+    const Eigen::VectorXd& getBoxSize() const override { return live().getBoxSize(); }
+    const Eigen::VectorXd& getConstraintMeritCoeff() const override { return live().getConstraintMeritCoeff(); }
+    const trajopt_ifopt::Jacobian& getHessian() const override { return live().getHessian(); }
+    const Eigen::VectorXd& getGradient() const override { return live().getGradient(); }
+    const trajopt_ifopt::Jacobian& getConstraintMatrix() const override { return live().getConstraintMatrix(); }
+    const Eigen::VectorXd& getBoundsLower() const override { return live().getBoundsLower(); }
+    const Eigen::VectorXd& getBoundsUpper() const override { return live().getBoundsUpper(); }
+
+private:
+    tsqp::QPProblem& live() const {
+        if (problem_ == nullptr)
+            throw QPProblemExpiredError(
+                "QPProblem: the problem an SQPCallback received is valid only during that call; the "
+                "solve that owned it has returned");
+        return *problem_;
+    }
+
+    tsqp::QPProblem* problem_;
+};
 
 // Trampoline for SQPCallback (allow Python subclasses)
 class PySQPCallback : public tsqp::SQPCallback {
@@ -60,14 +181,22 @@ public:
     bool execute(const tsqp::QPProblem& problem, const tsqp::SQPResults& sqp_results) override {
         // Mirrors nanobind 2.12.0 trampoline.h NB_OVERRIDE_PURE_NAME, with explicit argument
         // policies: its default for const& arguments is a copy, which aborts on a non-copyable
-        // problem (TrajOptQPProblem) and deep-copied every other problem on every trial. The
-        // problem goes by reference (Python gets the object passed to solve()); a problem with
-        // no Python instance (none reachable today) would arrive as a non-owning view valid
-        // only for the duration of the call. The results stay a copy, a per-trial snapshot.
+        // problem (TrajOptQPProblem) and deep-copied every other problem on every trial. A problem
+        // with a Python object (one passed to solve() from Python) arrives as that object. One
+        // without (built by a planner in C++) arrives as a QPProblemView that expires when the
+        // call returns. The results stay a copy, a per-trial snapshot.
         nanobind::detail::ticket nb_ticket(nb_trampoline, "execute", true);  // takes the GIL
-        return nb::cast<bool>(nb_trampoline.base().attr(nb_ticket.key)(
-            nb::cast(problem, nb::rv_policy::reference),
-            nb::cast(sqp_results, nb::rv_policy::copy)));
+        nb::object results = nb::cast(sqp_results, nb::rv_policy::copy);
+        nb::object existing = nb::find(problem);
+        if (existing.is_valid())
+            return nb::cast<bool>(nb_trampoline.base().attr(nb_ticket.key)(existing, results));
+        nb::object view_object = nb::cast(std::make_unique<QPProblemView>(problem));
+        auto& view = nb::cast<QPProblemView&>(view_object);
+        struct Expire {  // also when the callback raises
+            QPProblemView& view;
+            ~Expire() { view.expire(); }
+        } expire{ view };
+        return nb::cast<bool>(nb_trampoline.base().attr(nb_ticket.key)(view_object, results));
     }
 };
 
@@ -91,6 +220,13 @@ NB_MODULE(_trajopt_sqp, m) {
     m.doc() = "trajopt_sqp Python bindings - SQP solver for trajectory optimization";
     register_python_error_translator();  // SQPCallback trampoline
 
+    nb::exception<QPProblemExpiredError>(m, "QPProblemExpiredError", PyExc_RuntimeError)
+        .attr("__doc__") = "A QPProblemView used after the SQPCallback call it was passed to returned.";
+    nb::exception<VariablesSizeError>(m, "VariablesSizeError", PyExc_ValueError)
+        .attr("__doc__") = "QPProblem.setVariables with a vector that is not getNumNLPVars() long.";
+    nb::exception<QPSizeError>(m, "QPSizeError", PyExc_ValueError)
+        .attr("__doc__") = "QPSolver input whose size is not the (num_vars, num_cnts) of its init().";
+
     // Import trajopt_ifopt module for cross-module type resolution
     nb::module_::import_("tesseract_robotics.trajopt_ifopt._trajopt_ifopt");
 
@@ -110,6 +246,9 @@ NB_MODULE(_trajopt_sqp, m) {
         .value("QP_SOLVER_ERROR", tsqp::SQPStatus::kQPSolveFailed, "QP solver failed")
         .value("CALLBACK_STOPPED", tsqp::SQPStatus::kStoppedByCallback, "Stopped by callback");
 
+    m.def("toString", nb::overload_cast<tsqp::SQPStatus>(&tsqp::toString), "status"_a,
+          "trajopt's text for a solver status (e.g. 'SQP_CONVERGED')");
+
     nb::enum_<tsqp::QPSolverStatus>(m, "QPSolverStatus", "Status of QP solver")
         .value("UNITIALIZED", tsqp::QPSolverStatus::kUninitialized, "Solver not initialized")
         .value("INITIALIZED", tsqp::QPSolverStatus::kInitialized, "Solver initialized")
@@ -117,7 +256,9 @@ NB_MODULE(_trajopt_sqp, m) {
 
     // ========== SQPParameters ==========
 
-    nb::class_<tsqp::SQPParameters>(m, "SQPParameters", "Parameters controlling SQP optimization")
+    nb::class_<tsqp::SQPParameters> sqp_parameters(m, "SQPParameters", "Parameters controlling SQP optimization");
+    bind_value_equality(sqp_parameters);
+    sqp_parameters
         .def(nb::init<>())
         .def_rw("improve_ratio_threshold", &tsqp::SQPParameters::improve_ratio_threshold,
                 "Minimum ratio exact_improve/approx_improve to accept step (default: 0.25)")
@@ -216,6 +357,57 @@ NB_MODULE(_trajopt_sqp, m) {
         .def("solve", &tsqp::QPSolver::solve, "Solve the QP")
         .def("getSolution", &tsqp::QPSolver::getSolution, "Get the solution vector")
         .def("getSolverStatus", &tsqp::QPSolver::getSolverStatus, "Get solver status")
+        // The QP: minimise x'Hx + g'x s.t. lower <= A x <= upper. Each update checks its size
+        // against init(num_vars, num_cnts) and raises QPSizeError otherwise.
+        .def("updateHessianMatrix",
+             [](tsqp::QPSolver& self, const trajopt_ifopt::Jacobian& hessian) {
+                 const auto [n_vars, n_cnts] = qp_solver_size(self);
+                 require_size("updateHessianMatrix", "hessian rows", hessian.rows(), "num_vars", n_vars);
+                 require_size("updateHessianMatrix", "hessian columns", hessian.cols(), "num_vars", n_vars);
+                 return self.updateHessianMatrix(hessian);
+             },
+             "hessian"_a, "Set the Hessian H (sparse, num_vars square) of the objective x'Hx + g'x")
+        .def("updateGradient",
+             [](tsqp::QPSolver& self, const Eigen::Ref<const Eigen::VectorXd>& gradient) {
+                 require_size("updateGradient", "gradient", gradient.size(), "num_vars",
+                              qp_solver_size(self).first);
+                 return self.updateGradient(gradient);
+             },
+             "gradient"_a, "Set the gradient g (num_vars)")
+        .def("updateLowerBound",
+             [](tsqp::QPSolver& self, const Eigen::Ref<const Eigen::VectorXd>& lower_bound) {
+                 require_size("updateLowerBound", "lower_bound", lower_bound.size(), "num_cnts",
+                              qp_solver_size(self).second);
+                 return self.updateLowerBound(lower_bound);
+             },
+             "lower_bound"_a, "Set the constraint lower bounds (num_cnts)")
+        .def("updateUpperBound",
+             [](tsqp::QPSolver& self, const Eigen::Ref<const Eigen::VectorXd>& upper_bound) {
+                 require_size("updateUpperBound", "upper_bound", upper_bound.size(), "num_cnts",
+                              qp_solver_size(self).second);
+                 return self.updateUpperBound(upper_bound);
+             },
+             "upper_bound"_a, "Set the constraint upper bounds (num_cnts)")
+        .def("updateBounds",
+             [](tsqp::QPSolver& self, const Eigen::Ref<const Eigen::VectorXd>& lower_bound,
+                const Eigen::Ref<const Eigen::VectorXd>& upper_bound) {
+                 const Eigen::Index n_cnts = qp_solver_size(self).second;
+                 require_size("updateBounds", "lower_bound", lower_bound.size(), "num_cnts", n_cnts);
+                 require_size("updateBounds", "upper_bound", upper_bound.size(), "num_cnts", n_cnts);
+                 return self.updateBounds(lower_bound, upper_bound);
+             },
+             "lower_bound"_a, "upper_bound"_a, "Set both constraint bounds (num_cnts each)")
+        .def("updateLinearConstraintsMatrix",
+             [](tsqp::QPSolver& self, const trajopt_ifopt::Jacobian& matrix) {
+                 const auto [n_vars, n_cnts] = qp_solver_size(self);
+                 require_size("updateLinearConstraintsMatrix", "matrix rows", matrix.rows(), "num_cnts", n_cnts);
+                 require_size("updateLinearConstraintsMatrix", "matrix columns", matrix.cols(), "num_vars", n_vars);
+                 return self.updateLinearConstraintsMatrix(matrix);
+             },
+             "linear_constraints_matrix"_a, "Set the constraint matrix A (sparse, num_cnts x num_vars)")
+        .def("setWarmStart", &set_warm_start_checked, "qp_problem"_a,
+             "Seed the next solve from the problem's variables (and its slacks); a no-op while "
+             "the solver's warm-start option is off")
         .def_rw("verbosity", &tsqp::QPSolver::verbosity, "Verbosity level (0 = silent)");
 
     // ========== OSQPEigenSolver ==========
@@ -227,11 +419,6 @@ NB_MODULE(_trajopt_sqp, m) {
         .def("solve", &tsqp::OSQPEigenSolver::solve)
         .def("getSolution", &tsqp::OSQPEigenSolver::getSolution)
         .def("getSolverStatus", &tsqp::OSQPEigenSolver::getSolverStatus)
-        .def("updateGradient", &tsqp::OSQPEigenSolver::updateGradient, "gradient"_a)
-        .def("updateLowerBound", &tsqp::OSQPEigenSolver::updateLowerBound, "lower_bound"_a)
-        .def("updateUpperBound", &tsqp::OSQPEigenSolver::updateUpperBound, "upper_bound"_a)
-        .def("updateBounds", &tsqp::OSQPEigenSolver::updateBounds,
-             "lower_bound"_a, "upper_bound"_a)
         // OSQP settings — forwarded to solver_->settings()
         // Defaults (set in C++ constructor): polish=true, warmStart=true,
         // adaptiveRho=true, maxIter=8192, absTol=1e-4, relTol=1e-6
@@ -241,6 +428,10 @@ NB_MODULE(_trajopt_sqp, m) {
         .def("setWarmStart", [](tsqp::OSQPEigenSolver& self, bool v) {
             self.solver_->settings()->setWarmStart(v); }, "warm_start"_a,
             "Enable warm-starting (default: true)")
+        // The bool forwarder above hides QPSolver.setWarmStart(problem); bind it here too
+        .def("setWarmStart", &set_warm_start_checked, "qp_problem"_a,
+             "Seed the next solve from the problem's variables (and its slacks); a no-op while "
+             "warm-starting is off")
         .def("setAdaptiveRho", [](tsqp::OSQPEigenSolver& self, bool v) {
             self.solver_->settings()->setAdaptiveRho(v); }, "adaptive_rho"_a,
             "Enable adaptive step size (default: true)")
@@ -270,6 +461,17 @@ NB_MODULE(_trajopt_sqp, m) {
              "Setup the QP problem (call after adding all sets)")
         .def("getVariableValues", &tsqp::QPProblem::getVariableValues,
              "Get current optimization variable values")
+        .def("setVariables",
+             [](tsqp::QPProblem& self, const Eigen::Ref<const Eigen::VectorXd>& x) {
+                 if (x.size() != self.getNumNLPVars())
+                     throw VariablesSizeError("setVariables: x has " + std::to_string(x.size()) +
+                                              " entries; the problem has getNumNLPVars() = " +
+                                              std::to_string(self.getNumNLPVars()) + " variables");
+                 self.setVariables(x.data());
+             },
+             "x"_a,
+             "Set the NLP variables and update every component (a TrajOptQPProblem also recounts "
+             "its dynamic rows). Raises VariablesSizeError unless len(x) == getNumNLPVars().")
         .def("convexify", &tsqp::QPProblem::convexify,
              "Run the full convexification routine")
         .def("evaluateTotalConvexCost",
@@ -335,6 +537,23 @@ NB_MODULE(_trajopt_sqp, m) {
              "merit_coeff"_a, "Set constraint merit coefficients")
         .def("getBoxSize", nb::overload_cast<>(&tsqp::QPProblem::getBoxSize, nb::const_),
              "Get trust region box size")
+        .def("getConstraintMeritCoeff", &tsqp::QPProblem::getConstraintMeritCoeff,
+             "Get the constraint merit coefficients, one per constraint set")
+        // The convex model the last convexify() built: x'Hx + g'x (no 1/2, as evaluateTotalConvexCost
+        // and OSQPEigenSolver read H) over getNumQPVars() variables, s.t. lower <= A x <= upper over
+        // getNumQPConstraints() rows
+        .def("getHessian", [](const tsqp::QPProblem& self) { return compressed(self.getHessian()); },
+             "The QP Hessian (sparse, getNumQPVars() square), from the last convexify()")
+        .def("getGradient", &tsqp::QPProblem::getGradient,
+             "The QP gradient (getNumQPVars()), from the last convexify()")
+        .def("getConstraintMatrix",
+             [](const tsqp::QPProblem& self) { return compressed(self.getConstraintMatrix()); },
+             "The QP constraint matrix (sparse, getNumQPConstraints() x getNumQPVars()), from the "
+             "last convexify()")
+        .def("getBoundsLower", &tsqp::QPProblem::getBoundsLower,
+             "The QP constraint lower bounds (getNumQPConstraints()), from the last convexify()")
+        .def("getBoundsUpper", &tsqp::QPProblem::getBoundsUpper,
+             "The QP constraint upper bounds (getNumQPConstraints()), from the last convexify()")
         .def("print", &tsqp::QPProblem::print, "Print problem to console")
         .def("getNumNLPVars", &tsqp::QPProblem::getNumNLPVars,
              "Number of NLP variables")
@@ -373,11 +592,20 @@ NB_MODULE(_trajopt_sqp, m) {
 
     // ========== SQPCallback ==========
     // NOTE: PySQPCallback trampoline allows Python subclasses
+    nb::class_<QPProblemView, tsqp::QPProblem>(
+        m, "QPProblemView",
+        "The problem an SQPCallback receives from a solve whose problem has no Python object (one a\n"
+        "planner built in C++). Valid only during that call; afterwards every method raises\n"
+        "QPProblemExpiredError.");
+
     nb::class_<tsqp::SQPCallback, PySQPCallback>(
         m, "SQPCallback", "Base class for SQP optimization callbacks")
         .def(nb::init<>())
         .def("execute", &tsqp::SQPCallback::execute, "problem"_a, "sqp_results"_a,
-             "Called during SQP. Return false to stop optimization.");
+             "Called during SQP. Return false to stop optimization. problem is valid only during "
+             "the call: a problem passed to solve() from Python arrives as that object; one a "
+             "planner built in C++ arrives as a QPProblemView, which raises QPProblemExpiredError "
+             "once the call has returned. sqp_results is a copy the callback may keep.");
 
     // ========== TrustRegionSQPSolver ==========
 
