@@ -48,6 +48,13 @@
 // std::vector<ContactResultMap> on its node info's data_storage)
 #include <tesseract/collision/types.h>
 
+// Plugin anchors: the factory libraries are linked into this module, so the wheel repair tools
+// bundle them; the anchors register the bundled copies with the plugin loader at import
+#include <tesseract/task_composer/task_composer_task_plugin_factory.h>
+#include <tesseract/task_composer/planning/planning_task_composer_plugin_factories.h>
+#include <tesseract/task_composer/taskflow/taskflow_task_composer_plugin_factories.h>
+#include <boost_plugin_loader/utils.h>
+
 // console_bridge for log output visible alongside the rest of tesseract's logging
 #include <console_bridge/console.h>
 
@@ -152,6 +159,10 @@ std::unique_ptr<T> require_created(std::unique_ptr<T> created, const char* calle
 }  // anonymous namespace
 
 NB_MODULE(_tesseract_task_composer, m) {
+    boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract::task_composer::TaskComposerPlanningFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+    boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract::task_composer::TaskComposerTaskflowFactoriesAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+    boost_plugin_loader::addSymbolLibraryToSearchLibrariesEnv(tesseract::task_composer::TaskComposerTaskFactoryAnchor(), "TESSERACT_TASK_COMPOSER_PLUGINS");
+
     m.doc() = "tesseract_task_composer Python bindings";
 
     // Import tesseract_common module to ensure type hierarchy is available
